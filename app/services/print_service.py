@@ -165,15 +165,93 @@ class PrintService:
             # 创建新的事件循环
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            
+
             # 运行异步函数
             success, message = loop.run_until_complete(
                 PrintService.send_order_to_printer(order)
             )
-            
+
             loop.close()
             return success, message
-            
+
+        except Exception as e:
+            return False, f"同步发送失败: {str(e)}"
+
+    @staticmethod
+    async def send_order_to_specific_printer(order, printer=None):
+        """发送订单到指定打印机"""
+        try:
+            # 创建打印任务，使用指定的打印机
+            job = PrintService.create_order_print_job(order, printer)
+            if not job:
+                return False, "创建打印任务失败"
+
+            # 构建打印数据
+            print_data = {
+                "job_id": job.id,
+                "order_id": order.id,
+                "type": "order_receipt",
+                "content": job.print_content,
+                "copies": job.copies,
+                "priority": job.priority,
+                "timestamp": datetime.now().isoformat(),
+                "target_printer": {
+                    "id": printer.id if printer else None,
+                    "name": printer.name if printer else "默认打印机",
+                    "ip_address": printer.ip_address if printer else None
+                },
+                "order_info": {
+                    "id": order.id,
+                    "status": order.status,
+                    "total_amount": float(order.total_amount),
+                    "created_at": order.created_at.isoformat(),
+                    "customer_phone": order.user.phone if order.user else None
+                },
+                "printer_config": {
+                    "paper_width": job.printer.paper_width if job.printer else 80,
+                    "printer_type": job.printer.printer_type if job.printer else "thermal"
+                }
+            }
+
+            # 标记为正在打印
+            job.mark_as_printing()
+            db.session.commit()
+
+            # 发送到WebSocket服务器
+            success = await print_server.broadcast_order(print_data)
+
+            if success:
+                job.mark_as_completed()
+                db.session.commit()
+                printer_name = printer.name if printer else "默认打印机"
+                return True, f"订单已发送到 {printer_name}"
+            else:
+                job.mark_as_failed("没有可用的打印客户端")
+                db.session.commit()
+                return False, "没有连接的打印客户端"
+
+        except Exception as e:
+            if 'job' in locals():
+                job.mark_as_failed(str(e))
+                db.session.commit()
+            return False, f"发送失败: {str(e)}"
+
+    @staticmethod
+    def send_order_to_specific_printer_sync(order, printer=None):
+        """同步方式发送订单到指定打印机"""
+        try:
+            # 创建新的事件循环
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            # 运行异步函数
+            success, message = loop.run_until_complete(
+                PrintService.send_order_to_specific_printer(order, printer)
+            )
+
+            loop.close()
+            return success, message
+
         except Exception as e:
             return False, f"同步发送失败: {str(e)}"
     
@@ -244,6 +322,14 @@ def print_order(order):
     """打印订单（同步方式）"""
     return PrintService.send_order_to_printer_sync(order)
 
+def print_order_to_specific_printer(order, printer=None):
+    """打印订单到指定打印机（同步方式）"""
+    return PrintService.send_order_to_specific_printer_sync(order, printer)
+
 async def print_order_async(order):
     """打印订单（异步方式）"""
     return await PrintService.send_order_to_printer(order)
+
+async def print_order_to_specific_printer_async(order, printer=None):
+    """打印订单到指定打印机（异步方式）"""
+    return await PrintService.send_order_to_specific_printer(order, printer)

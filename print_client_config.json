@@ -1,0 +1,42 @@
+{
+  "server": {
+    "url": "ws://localhost:8765",
+    "reconnect_interval": 5,
+    "heartbeat_interval": 30
+  },
+  "printer": {
+    "name": "我的打印机",
+    "model": "TP-80",
+    "type": "thermal",
+    "paper_width": 80,
+    "ip_address": "192.168.1.100",
+    "port": 9100
+  },
+  "settings": {
+    "auto_print": true,
+    "save_to_file": false,
+    "file_path": "./prints/",
+    "log_level": "INFO"
+  },
+  "print_methods": {
+    "method": "network",
+    "network": {
+      "host": "192.168.1.100",
+      "port": 9100,
+      "timeout": 10
+    },
+    "file": {
+      "directory": "./prints/",
+      "filename_format": "order_{order_id}_{timestamp}.txt"
+    },
+    "system": {
+      "printer_name": "thermal_printer",
+      "command": "lp -d {printer_name}"
+    },
+    "escpos": {
+      "type": "network",
+      "host": "192.168.1.100",
+      "port": 9100
+    }
+  }
+}

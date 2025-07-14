@@ -110,7 +110,18 @@ def orders():
 def order_detail(order_id):
     """订单详情页面"""
     order = Order.query.get_or_404(order_id)
-    return render_template('admin/order_detail.html', order=order)
+
+    # 获取可用的打印机列表
+    try:
+        from app.models import PrinterConfig
+        available_printers = PrinterConfig.query.filter_by(is_active=True).all()
+    except Exception as e:
+        print(f"获取打印机列表失败: {e}")
+        available_printers = []
+
+    return render_template('admin/order_detail.html',
+                         order=order,
+                         available_printers=available_printers)
 
 @bp.route('/order/<int:order_id>/confirm', methods=['POST'])
 @admin_required
@@ -137,17 +148,31 @@ def confirm_order(order_id):
     except Exception as e:
         print(f"推送通知失败: {e}")
 
-    # 自动打印订单
-    try:
-        from app.services.print_service import print_order
-        success, message = print_order(order)
-        if success:
-            flash(f'订单 {order_id} 已确认并发送到打印机', 'success')
-        else:
-            flash(f'订单 {order_id} 已确认，但打印失败: {message}', 'warning')
-    except Exception as e:
-        print(f"自动打印失败: {e}")
-        flash(f'订单 {order_id} 已确认，但打印功能异常', 'warning')
+    # 根据管理员选择决定是否自动打印
+    auto_print = request.form.get('auto_print') == 'on'
+    selected_printer_id = request.form.get('printer_id')
+
+    if auto_print:
+        try:
+            from app.services.print_service import print_order_to_specific_printer
+            from app.models import PrinterConfig
+
+            # 获取指定的打印机
+            printer = None
+            if selected_printer_id:
+                printer = PrinterConfig.query.get(selected_printer_id)
+
+            success, message = print_order_to_specific_printer(order, printer)
+            if success:
+                printer_name = printer.name if printer else "默认打印机"
+                flash(f'订单 {order_id} 已确认并发送到 {printer_name}', 'success')
+            else:
+                flash(f'订单 {order_id} 已确认，但打印失败: {message}', 'warning')
+        except Exception as e:
+            print(f"自动打印失败: {e}")
+            flash(f'订单 {order_id} 已确认，但打印功能异常', 'warning')
+    else:
+        flash(f'订单 {order_id} 已确认', 'success')
     
     return redirect(url_for('admin.order_detail', order_id=order_id))
 
