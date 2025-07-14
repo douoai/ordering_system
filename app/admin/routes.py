@@ -128,8 +128,8 @@ def order_detail(order_id):
 def confirm_order(order_id):
     """确认订单"""
     order = Order.query.get_or_404(order_id)
-    
-    if order.status != 'pending':
+
+    if order.status not in ['pending', 'confirmed']:
         flash('订单状态不允许确认', 'error')
         return redirect(url_for('admin.order_detail', order_id=order_id))
     

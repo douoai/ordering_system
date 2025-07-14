@@ -155,8 +155,8 @@ class Order(db.Model):
         # 待确认状态可以直接取消
         if self.status == 'pending':
             return True
-        # 已确认、已支付状态需要管理员审批
-        elif self.status in ['confirmed', 'paid']:
+        # 已确认状态需要管理员审批
+        elif self.status == 'confirmed':
             return True
         # 其他状态不能取消
         return False
@@ -169,12 +169,12 @@ class Order(db.Model):
     @property
     def needs_cancel_approval(self):
         """判断取消是否需要管理员审批"""
-        return self.status in ['confirmed', 'paid'] and self.status != 'cancel_pending'
+        return self.status == 'confirmed' and self.status != 'cancel_pending'
 
     @property
     def needs_cancel_qr_code(self):
-        """判断取消订单是否需要上传收款二维码（已付款订单需要）"""
-        return self.status == 'paid'
+        """判断取消订单是否需要上传收款二维码（已确认订单需要）"""
+        return self.status == 'confirmed'
 
     @property
     def is_cancelled(self):
@@ -228,6 +228,77 @@ class PushDeerConfig(db.Model):
     is_active = db.Column(db.Boolean, default=True)  # 是否启用
     description = db.Column(db.Text, nullable=True)  # 配置描述
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # 事件配置字段 - 使用JSON存储
+    events_config = db.Column(db.Text, nullable=True)  # JSON格式存储事件配置
+
+    def get_events_config(self):
+        """获取事件配置"""
+        import json
+
+        # 默认配置
+        default_config = {
+            'new_order': True,
+            'order_confirmed': True,
+            'order_completed': True,
+            'order_cancelled': True,
+            'order_refunded': True,
+        }
+
+        # 如果有保存的配置，则使用保存的配置
+        if self.events_config:
+            try:
+                saved_config = json.loads(self.events_config)
+                # 合并默认配置和保存的配置
+                default_config.update(saved_config)
+            except (json.JSONDecodeError, TypeError):
+                pass  # 如果解析失败，使用默认配置
+
+        # 返回格式化的配置
+        return {
+            'new_order': {
+                'enabled': default_config.get('new_order', True),
+                'name': '新订单通知',
+                'description': '用户下单时发送通知'
+            },
+            'order_confirmed': {
+                'enabled': default_config.get('order_confirmed', True),
+                'name': '订单确认通知',
+                'description': '管理员确认订单时发送通知'
+            },
+            'order_completed': {
+                'enabled': default_config.get('order_completed', True),
+                'name': '订单完成通知',
+                'description': '订单制作完成时发送通知'
+            },
+            'order_cancelled': {
+                'enabled': default_config.get('order_cancelled', True),
+                'name': '订单取消通知',
+                'description': '订单被取消时发送通知'
+            },
+            'order_refunded': {
+                'enabled': default_config.get('order_refunded', True),
+                'name': '退款通知',
+                'description': '退款处理时发送通知'
+            }
+        }
+
+    def set_events_config(self, events_config):
+        """设置事件配置"""
+        import json
+        try:
+            # 将配置保存为JSON字符串
+            self.events_config = json.dumps(events_config)
+        except (TypeError, ValueError) as e:
+            print(f"保存事件配置失败: {e}")
+
+    def is_event_enabled(self, event_type):
+        """检查特定事件是否启用"""
+        events = self.get_events_config()
+        return events.get(event_type, {}).get('enabled', True)
+
+    def __repr__(self):
+        return f'<PushDeerConfig {self.name}>'
 
 
 class PrinterConfig(db.Model):

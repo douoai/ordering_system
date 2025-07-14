@@ -149,11 +149,6 @@ def payment(order_id):
     """支付页面"""
     order = Order.query.get_or_404(order_id)
 
-    # 检查订单状态
-    if order.status not in ['pending', 'confirmed']:
-        flash('订单状态不允许支付', 'error')
-        return redirect(url_for('main.order_detail', order_id=order_id))
-
     # 获取支付配置
     from app.models import PaymentConfig
     payment_configs = PaymentConfig.get_active_payments()
@@ -168,20 +163,33 @@ def payment(order_id):
 
 @bp.route('/confirm_payment/<int:order_id>', methods=['POST'])
 def confirm_payment(order_id):
-    """确认支付"""
+    """确认支付并直接确认订单"""
     order = Order.query.get_or_404(order_id)
 
     try:
         data = request.get_json()
         if data and data.get('confirmed'):
-            # 更新订单状态为已支付
-            order.status = 'paid'
+            # 直接更新订单状态为已确认（跳过支付状态检查）
+            order.status = 'confirmed'
             order.payment_time = datetime.now()
+            order.confirmed_at = datetime.now()
+            order.confirmed_by = 'customer'
+
+            # 更新用户统计信息
+            order.user.update_order_stats()
+
             db.session.commit()
+
+            # 发送推送通知
+            try:
+                from app.services.pushdeer_service import pushdeer_service
+                pushdeer_service.send_order_notification(order, 'order_confirmed')
+            except Exception as e:
+                print(f"推送通知失败: {e}")
 
             return jsonify({
                 'success': True,
-                'message': '支付确认成功'
+                'message': '订单确认成功'
             })
         else:
             return jsonify({
@@ -195,17 +203,7 @@ def confirm_payment(order_id):
             'message': f'确认失败: {str(e)}'
         })
 
-@bp.route('/check_payment_status/<int:order_id>')
-def check_payment_status(order_id):
-    """检查支付状态"""
-    order = Order.query.get_or_404(order_id)
 
-    # 这里可以集成真实的支付接口来检查支付状态
-    # 目前返回模拟结果
-    return jsonify({
-        'paid': order.status == 'paid',
-        'status': order.status
-    })
 
 @bp.route('/my_orders')
 def my_orders():
@@ -511,7 +509,7 @@ def cancel_order(order_id):
 
                 flash('订单已成功取消', 'success')
             else:
-                # 已确认/已支付状态需要管理员审批
+                # 已确认状态需要管理员审批
                 order.status = 'cancel_pending'
                 order.cancel_reason = cancel_reason
                 order.cancelled_by = user.username if user else 'guest'

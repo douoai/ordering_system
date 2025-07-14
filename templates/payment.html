@@ -277,9 +277,6 @@
                             <button type="button" class="btn btn-success btn-lg" onclick="confirmPayment()">
                                 <i class="fas fa-check-circle"></i> 我已完成支付
                             </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="checkPaymentStatus()">
-                                <i class="fas fa-sync-alt"></i> 检查支付状态
-                            </button>
                             <a href="{{ url_for('main.order_detail', order_id=order.id) }}" class="btn btn-outline-primary">
                                 <i class="fas fa-eye"></i> 查看订单详情
                             </a>
@@ -1120,7 +1117,7 @@ function submitPaymentConfirmation() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showPaymentAlert('支付确认成功！订单已提交处理。', 'success');
+            showPaymentAlert('订单确认成功！已提交处理。', 'success');
             setTimeout(() => {
                 window.location.href = '{{ url_for("main.order_detail", order_id=order.id) }}';
             }, 1500);
@@ -1145,44 +1142,7 @@ function submitPaymentConfirmation() {
     });
 }
 
-// 检查支付状态
-function checkPaymentStatus() {
-    const btn = event.target;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 检查中...';
-    btn.disabled = true;
-
-    fetch('{{ url_for("main.check_payment_status", order_id=order.id) }}', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            if (data.paid) {
-                showPaymentAlert('支付成功！正在跳转...', 'success');
-                setTimeout(() => {
-                    window.location.href = '{{ url_for("main.order_detail", order_id=order.id) }}';
-                }, 1500);
-            } else {
-                showPaymentAlert('暂未检测到支付，请确认支付后再试', 'info');
-            }
-        } else {
-            showPaymentAlert('检查失败：' + data.message, 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showPaymentAlert('网络错误，请重试', 'error');
-    })
-    .finally(() => {
-        // 恢复按钮状态
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    });
-}
+// 支付状态检查功能已移除
 
 // 初始化微信JS-SDK
 function initWechatJSSDK() {
