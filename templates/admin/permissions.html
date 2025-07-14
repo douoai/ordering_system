@@ -1,0 +1,52 @@
+{% extends "admin/base.html" %}
+
+{% block title %}权限管理 - 发财小狗饮品店{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-key"></i> 权限管理
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin.init_permissions') }}" class="btn btn-primary">
+            <i class="fas fa-sync"></i> 初始化权限
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if grouped_permissions %}
+        {% for module, permissions in grouped_permissions.items() %}
+        <div class="mb-4">
+            <h5 class="border-bottom pb-2">{{ module }}</h5>
+            <div class="row">
+                {% for permission in permissions %}
+                <div class="col-md-4 mb-2">
+                    <div class="card">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-1">{{ permission.permission_name }}</h6>
+                            <small class="text-muted">{{ permission.permission_code }}</small>
+                            {% if permission.description %}
+                            <p class="card-text small">{{ permission.description }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-key fa-3x text-muted mb-3"></i>
+            <h4>暂无权限配置</h4>
+            <p class="text-muted">点击上方"初始化权限"按钮创建默认权限</p>
+            <a href="{{ url_for('admin.init_permissions') }}" class="btn btn-primary">
+                <i class="fas fa-sync"></i> 初始化权限
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

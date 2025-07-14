@@ -1,0 +1,167 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">客户详情</h1>
+    <div>
+        <a href="{{ url_for('admin.customers') }}" class="btn btn-secondary">返回客户列表</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user"></i> 基本信息
+                    {% if customer.is_vip %}
+                        <span class="badge bg-warning ms-2">VIP</span>
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <td><strong>姓名:</strong></td>
+                        <td>{{ customer.username }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>邮箱:</strong></td>
+                        <td>{{ customer.email }}</td>
+                    </tr>
+                    {% if customer.phone %}
+                    <tr>
+                        <td><strong>电话:</strong></td>
+                        <td>{{ customer.phone }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if customer.address %}
+                    <tr>
+                        <td><strong>地址:</strong></td>
+                        <td>{{ customer.address }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td><strong>注册时间:</strong></td>
+                        <td>{{ customer.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        {% if customer.preferences or customer.notes %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-sticky-note"></i> 偏好与备注
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if customer.preferences %}
+                <div class="mb-3">
+                    <strong>饮品偏好:</strong>
+                    <p class="text-muted">{{ customer.preferences }}</p>
+                </div>
+                {% endif %}
+                {% if customer.notes %}
+                <div>
+                    <strong>其他备注:</strong>
+                    <p class="text-muted">{{ customer.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-bar"></i> 消费统计
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary">{{ customer.total_orders }}</h4>
+                        <small class="text-muted">总订单数</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">¥{{ "%.2f"|format(customer.total_spent) }}</h4>
+                        <small class="text-muted">总消费</small>
+                    </div>
+                </div>
+                {% if customer.last_order_at %}
+                <hr>
+                <p class="text-muted mb-0">
+                    <i class="fas fa-clock"></i> 
+                    最后下单: {{ customer.last_order_at.strftime('%Y-%m-%d %H:%M') }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-shopping-cart"></i> 订单历史 ({{ orders|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if orders %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>订单号</th>
+                                    <th>商品</th>
+                                    <th>金额</th>
+                                    <th>状态</th>
+                                    <th>下单时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in orders %}
+                                <tr>
+                                    <td>#{{ order.id }}</td>
+                                    <td>
+                                        {% for item in order.order_items %}
+                                            <div>{{ item.drink_product.name }} x{{ item.quantity }}</div>
+                                        {% endfor %}
+                                    </td>
+                                    <td>¥{{ "%.2f"|format(order.total_amount) }}</td>
+                                    <td>
+                                        {% if order.status == 'pending' %}
+                                            <span class="badge bg-warning fs-6 px-3 py-2">待确认</span>
+                                        {% elif order.status == 'confirmed' %}
+                                            <span class="badge bg-success">已确认</span>
+                                        {% elif order.status == 'rejected' %}
+                                            <span class="badge bg-danger">已拒绝</span>
+                                        {% elif order.status == 'refunded' %}
+                                            <span class="badge bg-info">已退款</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('admin.order_detail', order_id=order.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">查看</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">暂无订单记录</h5>
+                        <p class="text-muted">该客户还没有下过订单</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

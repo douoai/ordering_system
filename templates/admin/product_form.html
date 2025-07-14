@@ -1,0 +1,126 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ action }}产品</h1>
+    <div>
+        <a href="{{ url_for('admin.products') }}" class="btn btn-secondary">返回产品列表</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">产品信息</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">产品名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ product.name if product else '' }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">产品描述</label>
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ product.description if product else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="image" class="form-label">产品图片</label>
+                        <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                        <div class="form-text">支持 PNG, JPG, JPEG, GIF, WEBP 格式，最大 16MB</div>
+                        {% if product and product.image %}
+                        <div class="mt-2">
+                            <img src="{{ url_for('static', filename=product.image) }}"
+                                 alt="{{ product.name }}" class="img-thumbnail" style="max-width: 200px;">
+                            <div class="form-text">当前图片（上传新图片将替换）</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="price" class="form-label">价格 (元) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="price" name="price" step="0.01" min="0"
+                                       value="{{ product.price if product else '' }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="category_id" class="form-label">分类</label>
+                                <select class="form-select" id="category_id" name="category_id">
+                                    <option value="">请选择分类</option>
+                                    {% for category in categories %}
+                                    <option value="{{ category.id }}"
+                                            {{ 'selected' if product and product.category_id == category.id else '' }}>
+                                        {{ category.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if not categories %}
+                                <div class="form-text text-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    暂无可用分类，请先 <a href="{{ url_for('admin.add_category') }}" target="_blank">添加分类</a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="size_options" class="form-label">规格选项</label>
+                        <input type="text" class="form-control" id="size_options" name="size_options" 
+                               value="{{ product.size_options if product else 'small,medium,large' }}"
+                               placeholder="用逗号分隔，如：small,medium,large">
+                        <div class="form-text">可选值：small(小杯), medium(中杯), large(大杯)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="temperature_options" class="form-label">温度选项</label>
+                        <input type="text" class="form-control" id="temperature_options" name="temperature_options" 
+                               value="{{ product.temperature_options if product else 'hot,ice,normal' }}"
+                               placeholder="用逗号分隔，如：hot,ice,normal">
+                        <div class="form-text">可选值：hot(热饮), ice(冰饮), normal(常温)</div>
+                    </div>
+                    
+                    {% if product %}
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                   {{ 'checked' if product.is_active else '' }}>
+                            <label class="form-check-label" for="is_active">
+                                启用产品
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin.products') }}" class="btn btn-secondary me-md-2">取消</a>
+                        <button type="submit" class="btn btn-primary">{{ action }}产品</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">操作说明</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-info-circle text-info"></i> 产品名称和价格为必填项</li>
+                    <li><i class="fas fa-info-circle text-info"></i> 规格选项用逗号分隔</li>
+                    <li><i class="fas fa-info-circle text-info"></i> 温度选项用逗号分隔</li>
+                    <li><i class="fas fa-info-circle text-info"></i> 禁用的产品不会在前台显示</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

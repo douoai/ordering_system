@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}发财小狗饮品店{% endblock %}</title>
+    
+    <!-- Element UI CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    
+    <!-- Vue.js -->
+    <script src="https://unpkg.com/vue@2/dist/vue.js"></script>
+    
+    <!-- Element UI JS -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- 自定义样式 -->
+    <style>
+        :root {
+            --primary-color: #409EFF;
+            --success-color: #67C23A;
+            --warning-color: #E6A23C;
+            --danger-color: #F56C6C;
+            --info-color: #909399;
+        }
+        
+        body {
+            margin: 0;
+            font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+            background-color: #f5f7fa;
+        }
+        
+        .main-container {
+            min-height: 100vh;
+        }
+        
+        .header-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0;
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            height: 60px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .logo i {
+            margin-right: 8px;
+            font-size: 24px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .content-container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .page-header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #303133;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .page-title i {
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+        
+        .page-description {
+            color: #606266;
+            margin-top: 8px;
+            margin-bottom: 0;
+        }
+        
+        .card-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .search-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .stats-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stats-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .stats-label {
+            color: #606266;
+            font-size: 14px;
+        }
+        
+        .announcement-card {
+            margin-bottom: 16px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .announcement-header {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+        }
+        
+        .announcement-header i {
+            margin-right: 8px;
+        }
+        
+        .announcement-content {
+            margin-top: 8px;
+            line-height: 1.6;
+        }
+        
+        .announcement-meta {
+            margin-top: 8px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .content-container {
+                padding: 10px;
+            }
+            
+            .page-header {
+                padding: 15px;
+            }
+            
+            .search-container {
+                padding: 15px;
+            }
+        }
+        
+        /* Element UI 自定义样式 */
+        .el-table {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .el-card {
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .el-button {
+            border-radius: 6px;
+        }
+        
+        .el-input__inner {
+            border-radius: 6px;
+        }
+        
+        .el-select .el-input__inner {
+            border-radius: 6px;
+        }
+        
+        /* 自定义颜色 */
+        .text-primary { color: var(--primary-color) !important; }
+        .text-success { color: var(--success-color) !important; }
+        .text-warning { color: var(--warning-color) !important; }
+        .text-danger { color: var(--danger-color) !important; }
+        .text-info { color: var(--info-color) !important; }
+        
+        .bg-primary { background-color: var(--primary-color) !important; }
+        .bg-success { background-color: var(--success-color) !important; }
+        .bg-warning { background-color: var(--warning-color) !important; }
+        .bg-danger { background-color: var(--danger-color) !important; }
+        .bg-info { background-color: var(--info-color) !important; }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div id="app" class="main-container">
+        <!-- 头部导航 -->
+        <div class="header-container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-dog"></i>
+                    发财小狗饮品店
+                </div>
+                <div class="user-info">
+                    {% block header_actions %}
+                    <el-dropdown trigger="click">
+                        <span class="el-dropdown-link" style="color: white; cursor: pointer;">
+                            <i class="fas fa-user"></i> 
+                            {% if session.get('user_id') %}管理员{% else %}用户{% endif %}
+                            <i class="el-icon-arrow-down el-icon--right"></i>
+                        </span>
+                        <el-dropdown-menu slot="dropdown">
+                            {% if session.get('user_id') %}
+                            <el-dropdown-item>
+                                <a href="{{ url_for('admin.dashboard') }}" style="text-decoration: none; color: inherit;">
+                                    <i class="fas fa-tachometer-alt"></i> 管理后台
+                                </a>
+                            </el-dropdown-item>
+                            <el-dropdown-item divided>
+                                <a href="{{ url_for('admin.logout') }}" style="text-decoration: none; color: inherit;">
+                                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                                </a>
+                            </el-dropdown-item>
+                            {% else %}
+                            <el-dropdown-item>
+                                <a href="{{ url_for('main.index') }}" style="text-decoration: none; color: inherit;">
+                                    <i class="fas fa-home"></i> 首页
+                                </a>
+                            </el-dropdown-item>
+                            <el-dropdown-item>
+                                <a href="{{ url_for('main.my_orders') }}" style="text-decoration: none; color: inherit;">
+                                    <i class="fas fa-list"></i> 我的订单
+                                </a>
+                            </el-dropdown-item>
+                            {% endif %}
+                        </el-dropdown-menu>
+                    </el-dropdown>
+                    {% endblock %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主要内容区域 -->
+        <div class="content-container">
+            <!-- 页面标题 -->
+            {% block page_header %}{% endblock %}
+            
+            <!-- 消息提示 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <el-alert
+                        title="{{ message }}"
+                        type="{% if category == 'error' %}error{% elif category == 'warning' %}warning{% elif category == 'success' %}success{% else %}info{% endif %}"
+                        :closable="true"
+                        style="margin-bottom: 20px;">
+                    </el-alert>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <!-- 页面内容 -->
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Vue.js 应用初始化 -->
+    <script>
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    {% block vue_data %}{% endblock %}
+                }
+            },
+            methods: {
+                {% block vue_methods %}{% endblock %}
+            },
+            mounted() {
+                {% block vue_mounted %}{% endblock %}
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

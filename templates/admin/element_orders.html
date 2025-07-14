@@ -1,0 +1,346 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}订单管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}orders{% endblock %}
+
+{% block page_icon %}<i class="fas fa-shopping-cart"></i>{% endblock %}
+{% block page_title %}订单管理{% endblock %}
+
+{% block page_actions %}
+<el-button @click="refreshOrders" :loading="refreshing">
+    <i class="fas fa-sync-alt"></i> 刷新
+</el-button>
+<el-button type="primary" @click="exportOrders">
+    <i class="fas fa-download"></i> 导出
+</el-button>
+{% endblock %}
+
+{% block content %}
+<el-row :gutter="20">
+    <el-col :span="24">
+        <el-card>
+            <!-- 筛选器 -->
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-filter"></i> 订单筛选
+                </span>
+            </div>
+            
+            <el-row :gutter="20" style="margin-bottom: 20px;">
+                <el-col :span="6">
+                    <el-select v-model="statusFilter" placeholder="选择状态" @change="filterOrders" style="width: 100%;">
+                        <el-option label="全部订单" value="all"></el-option>
+                        <el-option label="待确认" value="pending"></el-option>
+                        <el-option label="已确认" value="confirmed"></el-option>
+                        <el-option label="已支付" value="paid"></el-option>
+                        <el-option label="已拒绝" value="rejected"></el-option>
+                        <el-option label="已完成" value="completed"></el-option>
+                        <el-option label="已退款" value="refunded"></el-option>
+                    </el-select>
+                </el-col>
+                <el-col :span="6">
+                    <el-date-picker
+                        v-model="dateRange"
+                        type="daterange"
+                        range-separator="至"
+                        start-placeholder="开始日期"
+                        end-placeholder="结束日期"
+                        @change="filterOrders"
+                        style="width: 100%;">
+                    </el-date-picker>
+                </el-col>
+                <el-col :span="6">
+                    <el-input
+                        v-model="searchKeyword"
+                        placeholder="搜索订单号、用户名、电话"
+                        @input="searchOrders"
+                        clearable>
+                        <i slot="prefix" class="el-input__icon el-icon-search"></i>
+                    </el-input>
+                </el-col>
+                <el-col :span="6">
+                    <el-button type="primary" @click="filterOrders" style="width: 100%;">
+                        <i class="fas fa-search"></i> 搜索
+                    </el-button>
+                </el-col>
+            </el-row>
+        </el-card>
+    </el-col>
+</el-row>
+
+<el-row :gutter="20" style="margin-top: 20px;">
+    <el-col :span="24">
+        <el-card>
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-list"></i> 订单列表 ({{ orders.total }} 个)
+                </span>
+                <div style="float: right;">
+                    <el-tag type="info">当前页: {{ orders.page }}/{{ orders.pages }}</el-tag>
+                </div>
+            </div>
+            
+            {% if orders.items %}
+            <el-table :data="ordersData" style="width: 100%" v-loading="loading">
+                <el-table-column prop="id" label="订单号" width="100">
+                    <template slot-scope="scope">
+                        <el-tag type="primary">#{{ "{{ scope.row.id }}" }}</el-tag>
+                    </template>
+                </el-table-column>
+                
+                <el-table-column prop="user" label="用户信息" width="180">
+                    <template slot-scope="scope">
+                        <div>
+                            <div style="font-weight: 600;">{{ "{{ scope.row.user.name }}" }}</div>
+                            <div style="color: #909399; font-size: 12px;">{{ "{{ scope.row.user.phone }}" }}</div>
+                        </div>
+                    </template>
+                </el-table-column>
+                
+                <el-table-column prop="items" label="商品信息" min-width="200">
+                    <template slot-scope="scope">
+                        <div v-for="item in scope.row.items" :key="item.id" style="margin-bottom: 4px;">
+                            <el-tag size="mini" type="info">
+                                {{ "{{ item.name }}" }} x{{ "{{ item.quantity }}" }}
+                            </el-tag>
+                            <div style="font-size: 11px; color: #909399;">
+                                {{ "{{ item.specs }}" }}
+                            </div>
+                        </div>
+                    </template>
+                </el-table-column>
+                
+                <el-table-column prop="amount" label="金额" width="100">
+                    <template slot-scope="scope">
+                        <span style="color: #F56C6C; font-weight: bold; font-size: 16px;">
+                            ¥{{ "{{ scope.row.amount }}" }}
+                        </span>
+                    </template>
+                </el-table-column>
+                
+                <el-table-column prop="status" label="状态" width="100">
+                    <template slot-scope="scope">
+                        <el-tag :type="getStatusType(scope.row.status)" size="small">
+                            {{ "{{ getStatusText(scope.row.status) }}" }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+                
+                <el-table-column prop="created_at" label="下单时间" width="160">
+                    <template slot-scope="scope">
+                        <div>
+                            <i class="el-icon-time"></i>
+                            {{ "{{ scope.row.created_at }}" }}
+                        </div>
+                    </template>
+                </el-table-column>
+                
+                <el-table-column label="操作" width="200" fixed="right">
+                    <template slot-scope="scope">
+                        <el-button-group>
+                            <el-button size="mini" @click="viewOrder(scope.row.id)">
+                                <i class="fas fa-eye"></i> 查看
+                            </el-button>
+                            
+                            <el-button 
+                                v-if="scope.row.status === 'pending'" 
+                                size="mini" 
+                                type="success" 
+                                @click="confirmOrder(scope.row.id)">
+                                <i class="fas fa-check"></i> 确认
+                            </el-button>
+                            
+                            <el-button 
+                                v-if="scope.row.status === 'pending'" 
+                                size="mini" 
+                                type="danger" 
+                                @click="rejectOrder(scope.row.id)">
+                                <i class="fas fa-times"></i> 拒绝
+                            </el-button>
+                            
+                            <el-button 
+                                size="mini" 
+                                type="info" 
+                                @click="printOrder(scope.row.id)">
+                                <i class="fas fa-print"></i> 打印
+                            </el-button>
+                        </el-button-group>
+                    </template>
+                </el-table-column>
+            </el-table>
+            
+            <!-- 分页 -->
+            <div style="text-align: center; margin-top: 20px;">
+                <el-pagination
+                    @current-change="handlePageChange"
+                    :current-page="currentPage"
+                    :page-size="20"
+                    layout="prev, pager, next, jumper"
+                    :total="{{ orders.total }}">
+                </el-pagination>
+            </div>
+            
+            {% else %}
+            <el-empty description="暂无订单数据">
+                <el-button type="primary" @click="refreshOrders">刷新页面</el-button>
+            </el-empty>
+            {% endif %}
+        </el-card>
+    </el-col>
+</el-row>
+{% endblock %}
+
+{% block vue_data %}
+statusFilter: '{{ status_filter }}',
+dateRange: null,
+searchKeyword: '',
+loading: false,
+refreshing: false,
+currentPage: {{ orders.page }},
+ordersData: [
+    {% for order in orders.items %}
+    {
+        id: {{ order.id }},
+        user: {
+            name: '{{ order.user.username }}',
+            phone: '{{ order.user.phone }}'
+        },
+        items: [
+            {% for item in order.order_items %}
+            {
+                id: {{ item.id }},
+                name: '{{ item.drink_product.name }}',
+                quantity: {{ item.quantity }},
+                specs: '{{ item.size or "" }}{% if item.temperature %} {{ item.temperature }}{% endif %}{% if item.sugar_level %} {{ item.sugar_level }}{% endif %}'
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        amount: '{{ "%.2f"|format(order.total_amount) }}',
+        status: '{{ order.status }}',
+        created_at: '{{ order.created_at.strftime("%m-%d %H:%M") }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+refreshOrders() {
+    this.refreshing = true;
+    window.location.reload();
+},
+
+filterOrders() {
+    const params = new URLSearchParams();
+    if (this.statusFilter !== 'all') {
+        params.append('status', this.statusFilter);
+    }
+    if (this.searchKeyword) {
+        params.append('search', this.searchKeyword);
+    }
+    params.append('ui', 'element');
+    
+    window.location.href = `{{ url_for('admin.orders') }}?${params.toString()}`;
+},
+
+searchOrders() {
+    // 实时搜索可以在这里实现
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+        this.filterOrders();
+    }, 500);
+},
+
+handlePageChange(page) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', page);
+    window.location.href = `{{ url_for('admin.orders') }}?${params.toString()}`;
+},
+
+viewOrder(orderId) {
+    window.location.href = `{{ url_for('admin.order_detail', order_id=0) }}`.replace('0', orderId);
+},
+
+confirmOrder(orderId) {
+    this.$confirm('确认接受此订单？', '确认操作', {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'success'
+    }).then(() => {
+        this.updateOrderStatus(orderId, 'confirmed');
+    });
+},
+
+rejectOrder(orderId) {
+    this.$prompt('请输入拒绝原因', '拒绝订单', {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        inputPattern: /.+/,
+        inputErrorMessage: '请输入拒绝原因'
+    }).then(({ value }) => {
+        this.updateOrderStatus(orderId, 'rejected', value);
+    });
+},
+
+updateOrderStatus(orderId, status, reason = '') {
+    this.loading = true;
+    
+    const formData = new FormData();
+    formData.append('status', status);
+    if (reason) formData.append('reason', reason);
+    
+    fetch(`{{ url_for('admin.update_order_status', order_id=0) }}`.replace('0', orderId), {
+        method: 'POST',
+        body: formData
+    }).then(response => {
+        if (response.ok) {
+            this.$message.success('订单状态更新成功');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            this.$message.error('更新失败，请重试');
+        }
+    }).catch(error => {
+        this.$message.error('网络错误，请重试');
+    }).finally(() => {
+        this.loading = false;
+    });
+},
+
+printOrder(orderId) {
+    window.open(`{{ url_for('admin.print_order', order_id=0) }}`.replace('0', orderId), '_blank');
+},
+
+exportOrders() {
+    this.$message.info('导出功能开发中...');
+},
+
+getStatusType(status) {
+    const statusMap = {
+        'pending': 'warning',
+        'confirmed': 'success',
+        'paid': 'primary',
+        'rejected': 'danger',
+        'completed': 'success',
+        'refunded': 'info'
+    };
+    return statusMap[status] || 'info';
+},
+
+getStatusText(status) {
+    const statusMap = {
+        'pending': '待确认',
+        'confirmed': '已确认',
+        'paid': '已支付',
+        'rejected': '已拒绝',
+        'completed': '已完成',
+        'refunded': '已退款'
+    };
+    return statusMap[status] || status;
+}
+{% endblock %}
+
+{% block vue_mounted %}
+console.log('订单管理页面加载完成');
+console.log('订单数据:', this.ordersData);
+{% endblock %}

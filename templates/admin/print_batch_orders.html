@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量打印订单 - 发财小狗饮品店</title>
+    <style>
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+            .page-break { page-break-after: always; }
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            margin: 20px;
+            color: #333;
+        }
+        
+        .print-header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .store-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .store-info {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .order-card {
+            border: 2px solid #333;
+            margin-bottom: 30px;
+            padding: 20px;
+            page-break-inside: avoid;
+        }
+        
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .order-number {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .order-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .status-pending { background-color: #fff3cd; color: #856404; }
+        .status-confirmed { background-color: #d1edff; color: #0c5460; }
+        .status-rejected { background-color: #f8d7da; color: #721c24; }
+        .status-refunded { background-color: #d1ecf1; color: #0c5460; }
+        
+        .customer-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .info-item {
+            display: flex;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            width: 80px;
+            flex-shrink: 0;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        .items-table th,
+        .items-table td {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        
+        .items-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .order-total {
+            text-align: right;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+        }
+        
+        .no-print {
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 0 5px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        
+        .batch-summary {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .batch-summary h3 {
+            margin: 0 0 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- 打印控制按钮 -->
+    <div class="no-print">
+        <button onclick="window.print()" class="btn">
+            <i class="fas fa-print"></i> 打印所有订单
+        </button>
+        <button onclick="window.close()" class="btn btn-secondary">
+            <i class="fas fa-times"></i> 关闭
+        </button>
+    </div>
+    
+    <!-- 批量打印概要 -->
+    <div class="batch-summary">
+        <h3>批量订单打印</h3>
+        <p>共 {{ orders|length }} 个订单 | 总金额: ¥{{ "%.2f"|format(orders|sum(attribute='total_amount')) }}</p>
+        <p>打印时间: <span id="printTime"></span></p>
+    </div>
+    
+    <!-- 店铺信息 -->
+    <div class="print-header">
+        <div class="store-name">🐕 发财小狗饮品店 ☕</div>
+        <div class="store-info">
+            地址: 美食街88号 | 电话: 400-888-8888 | 营业时间: 08:00-22:00
+        </div>
+    </div>
+    
+    <!-- 订单列表 -->
+    {% for order in orders %}
+    <div class="order-card">
+        <!-- 订单头部 -->
+        <div class="order-header">
+            <div class="order-number">订单 #{{ order.id }}</div>
+            <div class="order-status 
+                {% if order.status == 'pending' %}status-pending
+                {% elif order.status == 'confirmed' %}status-confirmed
+                {% elif order.status == 'rejected' %}status-rejected
+                {% elif order.status == 'refunded' %}status-refunded
+                {% endif %}">
+                {% if order.status == 'pending' %}待确认
+                {% elif order.status == 'confirmed' %}已确认
+                {% elif order.status == 'rejected' %}已拒绝
+                {% elif order.status == 'refunded' %}已退款
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 客户信息 -->
+        <div class="customer-info">
+            <div class="info-item">
+                <span class="info-label">客户:</span>
+                <span>{{ order.user.username }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">电话:</span>
+                <span>{{ order.user.phone or '未提供' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">下单时间:</span>
+                <span>{{ order.created_at.strftime('%m-%d %H:%M') }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">邮箱:</span>
+                <span>{{ order.user.email or '未提供' }}</span>
+            </div>
+        </div>
+        
+        {% if order.user.address %}
+        <div class="info-item" style="margin-bottom: 15px;">
+            <span class="info-label">地址:</span>
+            <span>{{ order.user.address }}</span>
+        </div>
+        {% endif %}
+        
+        {% if order.notes %}
+        <div class="info-item" style="margin-bottom: 15px;">
+            <span class="info-label">备注:</span>
+            <span>{{ order.notes }}</span>
+        </div>
+        {% endif %}
+        
+        <!-- 订单项目 -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>商品名称</th>
+                    <th>温度</th>
+                    <th>单价</th>
+                    <th>数量</th>
+                    <th>小计</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.order_items %}
+                <tr>
+                    <td>
+                        {{ item.drink_product.name }}
+                        {% if item.notes %}
+                        <br><small style="color: #666;">{{ item.notes }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.temperature == 'hot' %}热
+                        {% elif item.temperature == 'ice' %}冰
+                        {% elif item.temperature == 'room' %}常温
+                        {% else %}{{ item.temperature or '-' }}
+                        {% endif %}
+                    </td>
+                    <td>¥{{ "%.2f"|format(item.unit_price) }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>¥{{ "%.2f"|format(item.subtotal) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- 订单总计 -->
+        <div class="order-total">
+            商品总数: {{ order.total_items }} 件 | 订单总额: ¥{{ "%.2f"|format(order.total_amount) }}
+        </div>
+        
+        <!-- 客户偏好 -->
+        {% if order.user.preferences %}
+        <div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+            <strong>客户偏好:</strong> {{ order.user.preferences }}
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- 分页符（除了最后一个订单） -->
+    {% if not loop.last %}
+    <div class="page-break"></div>
+    {% endif %}
+    {% endfor %}
+    
+    <!-- 批量打印页脚 -->
+    <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #666; border-top: 1px dotted #ccc; padding-top: 15px;">
+        <p>发财小狗饮品店 - 批量订单打印</p>
+        <p>共打印 {{ orders|length }} 个订单 | 如有问题请联系客服: 400-888-8888</p>
+    </div>
+    
+    <script>
+        // 更新打印时间
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const timeString = now.getFullYear() + '-' + 
+                             String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                             String(now.getDate()).padStart(2, '0') + ' ' + 
+                             String(now.getHours()).padStart(2, '0') + ':' + 
+                             String(now.getMinutes()).padStart(2, '0') + ':' + 
+                             String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('printTime').textContent = timeString;
+        });
+    </script>
+</body>
+</html>

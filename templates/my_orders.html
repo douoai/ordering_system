@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}我的订单 - 发财小狗饮品店{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-list-alt"></i> 我的订单
+                    </h4>
+                    {% if not show_form %}
+                    <a href="{{ url_for('main.quick_order_check') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-search"></i> 查询其他订单
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if show_form %}
+                <!-- 订单查询表单 -->
+                <div class="text-center mb-4">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5>查询我的订单</h5>
+                    <p class="text-muted">请输入下单时使用的手机号</p>
+                </div>
+                
+                <form method="GET" class="row justify-content-center">
+                    <div class="col-md-6">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">
+                                <i class="fas fa-phone"></i>
+                            </span>
+                            <input type="tel" class="form-control" name="phone" 
+                                   placeholder="请输入手机号" value="{{ phone }}" required>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> 查询订单
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <div class="text-center">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        输入下单时填写的手机号即可查看所有订单
+                    </small>
+                </div>
+                
+                {% elif orders %}
+                <!-- 订单列表 -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ user.username }} 的订单</h6>
+                            <small class="text-muted">手机号: {{ phone }}</small>
+                        </div>
+                        <span class="badge bg-info">共 {{ orders|length }} 个订单</span>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    {% for order in orders %}
+                    <div class="col-12 mb-3">
+                        <div class="card border-start border-4 {% if order.status == 'pending' %}border-warning{% elif order.status == 'confirmed' %}border-success{% elif order.status == 'rejected' %}border-danger{% elif order.status == 'refunded' %}border-info{% endif %}">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="mb-1">
+                                                <i class="fas fa-receipt"></i> 订单 #{{ order.id }}
+                                            </h6>
+                                            <div>
+                                                {% if order.status == 'pending' %}
+                                                    <span class="badge bg-warning fs-6 px-3 py-2">{{ order.status_display }}</span>
+                                                {% elif order.status == 'confirmed' %}
+                                                    <span class="badge bg-success fs-6 px-3 py-2">{{ order.status_display }}</span>
+                                                {% elif order.status == 'paid' %}
+                                                    <span class="badge bg-primary fs-6 px-3 py-2">{{ order.status_display }}</span>
+                                                {% elif order.status == 'rejected' %}
+                                                    <span class="badge bg-danger fs-6 px-3 py-2">{{ order.status_display }}</span>
+                                                {% elif order.status == 'completed' %}
+                                                    <span class="badge bg-success fs-6 px-3 py-2">{{ order.status_display }}</span>
+                                                {% elif order.status == 'refunded' %}
+                                                    <span class="badge bg-info fs-6 px-3 py-2">{{ order.status_display }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary fs-6 px-3 py-2">{{ order.status_display }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- 订单项目 -->
+                                        <div class="mb-2">
+                                            {% for item in order.order_items %}
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div>
+                                                    <span class="fw-medium">{{ item.drink_product.name }}</span>
+                                                    <span class="text-muted">x{{ item.quantity }}</span>
+                                                    {% if item.temperature %}
+                                                        <small class="text-muted">
+                                                            ({% if item.temperature == 'hot' %}热{% elif item.temperature == 'ice' %}冰{% elif item.temperature == 'room' %}常温{% else %}{{ item.temperature }}{% endif %})
+                                                        </small>
+                                                    {% endif %}
+                                                </div>
+                                                <span class="text-muted">¥{{ "%.2f"|format(item.subtotal) }}</span>
+                                            </div>
+                                            {% if item.notes %}
+                                            <small class="text-muted">备注: {{ item.notes }}</small>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                        
+                                        <div class="text-muted small">
+                                            <i class="fas fa-clock"></i> {{ order.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                            {% if order.notes %}
+                                            <br><i class="fas fa-comment"></i> {{ order.notes }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 text-md-end">
+                                        <div class="mb-2">
+                                            <div class="h5 text-primary mb-1">¥{{ "%.2f"|format(order.total_amount) }}</div>
+                                            <small class="text-muted">总金额</small>
+                                        </div>
+                                        
+                                        <div class="d-grid gap-2">
+                                            <a href="{{ url_for('main.order_detail', order_id=order.id) }}" 
+                                               class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-eye"></i> 查看详情
+                                            </a>
+                                            
+                                            {% if order.can_refund %}
+                                            <a href="{{ url_for('main.refund_order', order_id=order.id) }}" 
+                                               class="btn btn-outline-warning btn-sm">
+                                                <i class="fas fa-undo"></i> 申请退款
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% else %}
+                <!-- 无订单 -->
+                <div class="text-center py-5">
+                    <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">暂无订单记录</h5>
+                    <p class="text-muted">该手机号还没有下过订单</p>
+                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                        <i class="fas fa-coffee"></i> 立即下单
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if not show_form %}
+        <div class="text-center mt-3">
+            <a href="{{ url_for('main.index') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> 继续下单
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

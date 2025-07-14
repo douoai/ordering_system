@@ -1,0 +1,373 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}仪表盘 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}dashboard{% endblock %}
+
+{% block page_icon %}<i class="fas fa-tachometer-alt"></i>{% endblock %}
+{% block page_title %}仪表盘{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-refresh" @click="refreshData">
+    刷新数据
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 统计卡片 -->
+<el-row :gutter="20" class="stats-row">
+    <el-col :xs="12" :sm="6">
+        <div class="stat-card stat-primary">
+            <div class="stat-number">{{ total_orders }}</div>
+            <div class="stat-label">总订单数</div>
+        </div>
+    </el-col>
+    <el-col :xs="12" :sm="6">
+        <div class="stat-card stat-success">
+            <div class="stat-number">{{ total_revenue }}</div>
+            <div class="stat-label">总营业额</div>
+        </div>
+    </el-col>
+    <el-col :xs="12" :sm="6">
+        <div class="stat-card stat-warning">
+            <div class="stat-number">{{ pending_orders }}</div>
+            <div class="stat-label">待处理订单</div>
+        </div>
+    </el-col>
+    <el-col :xs="12" :sm="6">
+        <div class="stat-card stat-danger">
+            <div class="stat-number">{{ total_customers }}</div>
+            <div class="stat-label">客户总数</div>
+        </div>
+    </el-col>
+</el-row>
+
+<!-- 今日数据 -->
+<el-row :gutter="20" style="margin-bottom: 20px;">
+    <el-col :span="24">
+        <el-card>
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-calendar-day"></i> 今日数据
+                </span>
+                <span style="float: right; color: #909399; font-size: 12px;">
+                    {{ today_date }}
+                </span>
+            </div>
+            
+            <el-row :gutter="20">
+                <el-col :xs="12" :sm="6">
+                    <div class="today-stat">
+                        <div class="today-number text-primary">{{ today_orders }}</div>
+                        <div class="today-label">今日订单</div>
+                    </div>
+                </el-col>
+                <el-col :xs="12" :sm="6">
+                    <div class="today-stat">
+                        <div class="today-number text-success">¥{{ today_revenue }}</div>
+                        <div class="today-label">今日营业额</div>
+                    </div>
+                </el-col>
+                <el-col :xs="12" :sm="6">
+                    <div class="today-stat">
+                        <div class="today-number text-warning">{{ today_customers }}</div>
+                        <div class="today-label">新增客户</div>
+                    </div>
+                </el-col>
+                <el-col :xs="12" :sm="6">
+                    <div class="today-stat">
+                        <div class="today-number text-info">{{ avg_order_value }}</div>
+                        <div class="today-label">平均订单额</div>
+                    </div>
+                </el-col>
+            </el-row>
+        </el-card>
+    </el-col>
+</el-row>
+
+<!-- 订单状态分布 -->
+<el-row :gutter="20" style="margin-bottom: 20px;">
+    <el-col :md="12">
+        <el-card>
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-chart-pie"></i> 订单状态分布
+                </span>
+            </div>
+            
+            <div class="status-chart">
+                <div class="status-item">
+                    <div class="status-bar">
+                        <div class="status-progress" style="width: {{ (pending_orders / total_orders * 100) if total_orders > 0 else 0 }}%; background-color: #E6A23C;"></div>
+                    </div>
+                    <div class="status-info">
+                        <span class="status-label">待确认</span>
+                        <span class="status-count">{{ pending_orders }}</span>
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-bar">
+                        <div class="status-progress" style="width: {{ (confirmed_orders / total_orders * 100) if total_orders > 0 else 0 }}%; background-color: #67C23A;"></div>
+                    </div>
+                    <div class="status-info">
+                        <span class="status-label">已确认</span>
+                        <span class="status-count">{{ confirmed_orders }}</span>
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-bar">
+                        <div class="status-progress" style="width: {{ (completed_orders / total_orders * 100) if total_orders > 0 else 0 }}%; background-color: #409EFF;"></div>
+                    </div>
+                    <div class="status-info">
+                        <span class="status-label">已完成</span>
+                        <span class="status-count">{{ completed_orders }}</span>
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="status-bar">
+                        <div class="status-progress" style="width: {{ (rejected_orders / total_orders * 100) if total_orders > 0 else 0 }}%; background-color: #F56C6C;"></div>
+                    </div>
+                    <div class="status-info">
+                        <span class="status-label">已拒绝</span>
+                        <span class="status-count">{{ rejected_orders }}</span>
+                    </div>
+                </div>
+            </div>
+        </el-card>
+    </el-col>
+    
+    <el-col :md="12">
+        <el-card>
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-star"></i> 热销产品 TOP5
+                </span>
+            </div>
+            
+            <div class="popular-products">
+                {% for product in popular_products %}
+                <div class="product-item">
+                    <div class="product-rank">{{ loop.index }}</div>
+                    <div class="product-info">
+                        <div class="product-name">{{ product.name }}</div>
+                        <div class="product-sales">销量: {{ product.sales_count }}</div>
+                    </div>
+                    <div class="product-revenue">¥{{ product.revenue }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </el-card>
+    </el-col>
+</el-row>
+
+<!-- 最近订单 -->
+<el-row :gutter="20">
+    <el-col :span="24">
+        <el-card>
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-clock"></i> 最近订单
+                </span>
+                <el-button style="float: right; padding: 3px 0" type="text" @click="viewAllOrders">
+                    查看全部
+                </el-button>
+            </div>
+            
+            {% if recent_orders %}
+            <el-table :data="recentOrdersData" style="width: 100%">
+                <el-table-column prop="id" label="订单号" width="100"></el-table-column>
+                <el-table-column prop="customer" label="客户" width="120"></el-table-column>
+                <el-table-column prop="items" label="商品" min-width="200"></el-table-column>
+                <el-table-column prop="amount" label="金额" width="100">
+                    <template slot-scope="scope">
+                        <span style="color: #F56C6C; font-weight: bold;">¥{{ "{{ scope.row.amount }}" }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="status" label="状态" width="100">
+                    <template slot-scope="scope">
+                        <el-tag :type="getOrderStatusType(scope.row.status)" size="small">
+                            {{ "{{ getOrderStatusText(scope.row.status) }}" }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="created_at" label="下单时间" width="150">
+                    <template slot-scope="scope">
+                        <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="操作" width="100">
+                    <template slot-scope="scope">
+                        <el-button type="text" size="small" @click="viewOrder(scope.row.id)">
+                            查看
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+            {% else %}
+            <el-empty description="暂无订单数据"></el-empty>
+            {% endif %}
+        </el-card>
+    </el-col>
+</el-row>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.today-stat {
+    text-align: center;
+    padding: 10px;
+}
+
+.today-number {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.today-label {
+    color: #909399;
+    font-size: 14px;
+}
+
+.status-chart {
+    padding: 10px 0;
+}
+
+.status-item {
+    margin-bottom: 15px;
+}
+
+.status-bar {
+    height: 8px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.status-progress {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.status-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+
+.status-label {
+    color: #606266;
+}
+
+.status-count {
+    font-weight: bold;
+    color: #303133;
+}
+
+.popular-products {
+    padding: 10px 0;
+}
+
+.product-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.product-item:last-child {
+    border-bottom: none;
+}
+
+.product-rank {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #409EFF;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 15px;
+}
+
+.product-info {
+    flex: 1;
+}
+
+.product-name {
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 2px;
+}
+
+.product-sales {
+    font-size: 12px;
+    color: #909399;
+}
+
+.product-revenue {
+    font-weight: bold;
+    color: #F56C6C;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+recentOrdersData: [
+    {% if recent_orders %}
+    {% for order in recent_orders %}
+    {
+        id: {{ order.id }},
+        customer: '{{ order.user.username }}',
+        items: '{{ order.order_items|length }} 件商品',
+        amount: '{{ "%.2f"|format(order.total_amount) }}',
+        status: '{{ order.status }}',
+        created_at: '{{ order.created_at.strftime('%m-%d %H:%M') }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+refreshData() {
+    this.$message.success('数据刷新成功');
+    window.location.reload();
+},
+
+viewAllOrders() {
+    window.location.href = '{{ url_for('admin.orders') }}';
+},
+
+viewOrder(orderId) {
+    window.location.href = `/admin/order/${orderId}`;
+},
+
+getOrderStatusType(status) {
+    const statusMap = {
+        'pending': 'warning',
+        'confirmed': 'success',
+        'completed': 'primary',
+        'rejected': 'danger',
+        'refunded': 'info'
+    };
+    return statusMap[status] || 'info';
+},
+
+getOrderStatusText(status) {
+    const statusMap = {
+        'pending': '待确认',
+        'confirmed': '已确认',
+        'completed': '已完成',
+        'rejected': '已拒绝',
+        'refunded': '已退款'
+    };
+    return statusMap[status] || status;
+}
+{% endblock %}
+{% endblock %}

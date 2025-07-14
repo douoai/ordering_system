@@ -1,0 +1,61 @@
+<svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="300" fill="white" stroke="black" stroke-width="2"/>
+  
+  <!-- 模拟二维码方块 -->
+  <rect x="20" y="20" width="10" height="10" fill="black"/>
+  <rect x="40" y="20" width="10" height="10" fill="black"/>
+  <rect x="60" y="20" width="10" height="10" fill="black"/>
+  <rect x="20" y="40" width="10" height="10" fill="black"/>
+  <rect x="60" y="40" width="10" height="10" fill="black"/>
+  <rect x="20" y="60" width="10" height="10" fill="black"/>
+  <rect x="40" y="60" width="10" height="10" fill="black"/>
+  <rect x="60" y="60" width="10" height="10" fill="black"/>
+  
+  <rect x="220" y="20" width="10" height="10" fill="black"/>
+  <rect x="240" y="20" width="10" height="10" fill="black"/>
+  <rect x="260" y="20" width="10" height="10" fill="black"/>
+  <rect x="220" y="40" width="10" height="10" fill="black"/>
+  <rect x="260" y="40" width="10" height="10" fill="black"/>
+  <rect x="220" y="60" width="10" height="10" fill="black"/>
+  <rect x="240" y="60" width="10" height="10" fill="black"/>
+  <rect x="260" y="60" width="10" height="10" fill="black"/>
+  
+  <rect x="20" y="220" width="10" height="10" fill="black"/>
+  <rect x="40" y="220" width="10" height="10" fill="black"/>
+  <rect x="60" y="220" width="10" height="10" fill="black"/>
+  <rect x="20" y="240" width="10" height="10" fill="black"/>
+  <rect x="60" y="240" width="10" height="10" fill="black"/>
+  <rect x="20" y="260" width="10" height="10" fill="black"/>
+  <rect x="40" y="260" width="10" height="10" fill="black"/>
+  <rect x="60" y="260" width="10" height="10" fill="black"/>
+  
+  <!-- 中间的一些方块 -->
+  <rect x="100" y="100" width="10" height="10" fill="black"/>
+  <rect x="120" y="100" width="10" height="10" fill="black"/>
+  <rect x="140" y="100" width="10" height="10" fill="black"/>
+  <rect x="160" y="100" width="10" height="10" fill="black"/>
+  <rect x="180" y="100" width="10" height="10" fill="black"/>
+  
+  <rect x="100" y="120" width="10" height="10" fill="black"/>
+  <rect x="180" y="120" width="10" height="10" fill="black"/>
+  
+  <rect x="100" y="140" width="10" height="10" fill="black"/>
+  <rect x="120" y="140" width="10" height="10" fill="black"/>
+  <rect x="140" y="140" width="10" height="10" fill="black"/>
+  <rect x="160" y="140" width="10" height="10" fill="black"/>
+  <rect x="180" y="140" width="10" height="10" fill="black"/>
+  
+  <rect x="100" y="160" width="10" height="10" fill="black"/>
+  <rect x="180" y="160" width="10" height="10" fill="black"/>
+  
+  <rect x="100" y="180" width="10" height="10" fill="black"/>
+  <rect x="120" y="180" width="10" height="10" fill="black"/>
+  <rect x="140" y="180" width="10" height="10" fill="black"/>
+  <rect x="160" y="180" width="10" height="10" fill="black"/>
+  <rect x="180" y="180" width="10" height="10" fill="black"/>
+  
+  <!-- 文字 -->
+  <text x="150" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="black">
+    支付二维码占位符
+  </text>
+</svg>

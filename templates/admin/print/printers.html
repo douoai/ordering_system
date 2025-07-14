@@ -1,0 +1,308 @@
+{% extends "admin/base.html" %}
+
+{% block title %}打印机管理 - 发财小狗饮品店{% endblock %}
+
+{% block extra_css %}
+<style>
+    .printer-management {
+        padding: 20px;
+    }
+
+    .printer-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .printer-card:hover {
+        transform: translateY(-3px);
+    }
+
+    .printer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .printer-name {
+        font-size: 20px;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .printer-status {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .printer-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #666;
+    }
+
+    .printer-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-edit {
+        background: #007bff;
+        color: white;
+    }
+
+    .btn-toggle {
+        background: #28a745;
+        color: white;
+    }
+
+    .btn-toggle.inactive {
+        background: #dc3545;
+    }
+
+    .btn-test {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .add-printer-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #28a745;
+        color: white;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(40, 167, 69, 0.4);
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+
+    .add-printer-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(40, 167, 69, 0.6);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+
+    .empty-state i {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+
+    @media (max-width: 768px) {
+        .printer-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .printer-info {
+            grid-template-columns: 1fr;
+        }
+
+        .printer-actions {
+            justify-content: center;
+        }
+
+        .add-printer-btn {
+            bottom: 20px;
+            right: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="printer-management">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-print"></i> 打印机管理</h1>
+        <a href="{{ url_for('print_admin.index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 返回首页
+        </a>
+    </div>
+
+    {% if printers %}
+        {% for printer in printers %}
+        <div class="printer-card">
+            <div class="printer-header">
+                <div class="printer-name">
+                    <i class="fas fa-print"></i> {{ printer.name }}
+                </div>
+                <div class="printer-status {% if printer.is_active %}status-active{% else %}status-inactive{% endif %}">
+                    {% if printer.is_active %}
+                        <i class="fas fa-check-circle"></i> 启用
+                    {% else %}
+                        <i class="fas fa-times-circle"></i> 禁用
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="printer-info">
+                <div class="info-item">
+                    <i class="fas fa-network-wired"></i>
+                    <span>IP地址: {{ printer.ip_address or '未设置' }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-plug"></i>
+                    <span>端口: {{ printer.port }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-cog"></i>
+                    <span>类型: {{ printer.printer_type }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-ruler"></i>
+                    <span>纸张宽度: {{ printer.paper_width }}mm</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-copy"></i>
+                    <span>打印份数: {{ printer.print_copies }}</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-robot"></i>
+                    <span>自动打印: {% if printer.auto_print_orders %}是{% else %}否{% endif %}</span>
+                </div>
+            </div>
+
+            {% if printer.description %}
+            <div class="mb-3">
+                <small class="text-muted">
+                    <i class="fas fa-comment"></i> {{ printer.description }}
+                </small>
+            </div>
+            {% endif %}
+
+            <div class="printer-actions">
+                <a href="{{ url_for('print_admin.edit_printer', printer_id=printer.id) }}" 
+                   class="action-btn btn-edit">
+                    <i class="fas fa-edit"></i> 编辑
+                </a>
+                
+                <a href="{{ url_for('print_admin.toggle_printer', printer_id=printer.id) }}" 
+                   class="action-btn btn-toggle {% if not printer.is_active %}inactive{% endif %}"
+                   onclick="return confirm('确定要{% if printer.is_active %}禁用{% else %}启用{% endif %}这台打印机吗？')">
+                    {% if printer.is_active %}
+                        <i class="fas fa-pause"></i> 禁用
+                    {% else %}
+                        <i class="fas fa-play"></i> 启用
+                    {% endif %}
+                </a>
+                
+                <button class="action-btn btn-test" onclick="testPrinter({{ printer.id }})">
+                    <i class="fas fa-vial"></i> 测试
+                </button>
+            </div>
+
+            <div class="mt-3">
+                <small class="text-muted">
+                    创建时间: {{ printer.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    {% if printer.updated_at != printer.created_at %}
+                    | 更新时间: {{ printer.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-print"></i>
+            <h3>暂无打印机</h3>
+            <p>点击右下角的 + 按钮添加第一台打印机</p>
+        </div>
+    {% endif %}
+
+    <!-- 添加打印机按钮 -->
+    <a href="{{ url_for('print_admin.add_printer') }}" class="add-printer-btn" title="添加打印机">
+        <i class="fas fa-plus"></i>
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testPrinter(printerId) {
+    if (!confirm('确定要测试这台打印机吗？')) {
+        return;
+    }
+    
+    // 发送测试打印请求
+    fetch(`/admin/print/test/print?printer_id=${printerId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('测试打印命令已发送');
+        } else {
+            alert('测试失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('测试打印失败:', error);
+        alert('测试失败，请检查网络连接');
+    });
+}
+
+// 自动刷新打印机状态
+setInterval(() => {
+    // 可以添加AJAX刷新逻辑
+}, 30000);
+</script>
+{% endblock %}

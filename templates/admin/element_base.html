@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}管理后台 - 发财小狗饮品店{% endblock %}</title>
+    
+    <!-- Element UI CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    
+    <!-- Vue.js -->
+    <script src="https://unpkg.com/vue@2/dist/vue.js"></script>
+    
+    <!-- Element UI JS -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- 自定义样式 -->
+    <style>
+        body {
+            margin: 0;
+            font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+        }
+        
+        .admin-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .admin-logo {
+            display: flex;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .admin-logo i {
+            margin-right: 8px;
+            font-size: 20px;
+        }
+        
+        .admin-main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .admin-sidebar {
+            width: 250px;
+            background: #304156;
+            overflow-y: auto;
+        }
+        
+        .admin-content {
+            flex: 1;
+            background: #f0f2f5;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .page-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-height: calc(100vh - 120px);
+        }
+        
+        .page-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e8eaec;
+            background: white;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .page-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #17233d;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .page-title-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .page-title-left i {
+            margin-right: 8px;
+            color: #409EFF;
+        }
+        
+        .page-content {
+            padding: 24px;
+        }
+        
+        .search-form {
+            background: #fafbfc;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-row {
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            color: #606266;
+            font-size: 14px;
+        }
+        
+        .stat-primary .stat-number { color: #409EFF; }
+        .stat-success .stat-number { color: #67C23A; }
+        .stat-warning .stat-number { color: #E6A23C; }
+        .stat-danger .stat-number { color: #F56C6C; }
+        
+        /* Element UI 自定义样式 */
+        .el-menu {
+            border-right: none;
+        }
+        
+        .el-menu--dark {
+            background-color: #304156;
+        }
+        
+        .el-menu--dark .el-menu-item {
+            color: #bfcbd9;
+        }
+        
+        .el-menu--dark .el-menu-item:hover {
+            background-color: #263445;
+            color: #409EFF;
+        }
+        
+        .el-menu--dark .el-menu-item.is-active {
+            background-color: #409EFF;
+            color: white;
+        }
+        
+        .el-table {
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .el-card {
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .el-button {
+            border-radius: 4px;
+        }
+        
+        .el-input__inner {
+            border-radius: 4px;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .admin-sidebar {
+                width: 200px;
+            }
+            
+            .admin-content {
+                padding: 10px;
+            }
+            
+            .page-content {
+                padding: 16px;
+            }
+            
+            .search-form {
+                padding: 15px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .admin-sidebar {
+                display: none;
+            }
+            
+            .admin-content {
+                padding: 5px;
+            }
+            
+            .page-content {
+                padding: 12px;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div id="app" class="admin-container">
+        <!-- 顶部导航 -->
+        <div class="admin-header">
+            <div class="admin-logo">
+                <i class="fas fa-dog"></i>
+                发财小狗饮品店 - 管理后台
+            </div>
+            <div>
+                <el-dropdown trigger="click">
+                    <span class="el-dropdown-link" style="color: white; cursor: pointer;">
+                        <i class="fas fa-user-circle"></i> 
+                        管理员
+                        <i class="el-icon-arrow-down el-icon--right"></i>
+                    </span>
+                    <el-dropdown-menu slot="dropdown">
+                        <el-dropdown-item>
+                            <a href="{{ url_for('main.index') }}" style="text-decoration: none; color: inherit;">
+                                <i class="fas fa-home"></i> 返回首页
+                            </a>
+                        </el-dropdown-item>
+                        <el-dropdown-item divided>
+                            <a href="{{ url_for('admin.logout') }}" style="text-decoration: none; color: inherit;">
+                                <i class="fas fa-sign-out-alt"></i> 退出登录
+                            </a>
+                        </el-dropdown-item>
+                    </el-dropdown-menu>
+                </el-dropdown>
+            </div>
+        </div>
+        
+        <!-- 主体内容 -->
+        <div class="admin-main">
+            <!-- 侧边栏 -->
+            <div class="admin-sidebar">
+                <el-menu
+                    :default-active="activeMenu"
+                    class="el-menu-vertical-demo"
+                    background-color="#304156"
+                    text-color="#bfcbd9"
+                    active-text-color="#409EFF"
+                    :unique-opened="true">
+
+                    {% set menu_items = get_admin_menu_items() %}
+                    {% for menu in menu_items %}
+                    <el-menu-item index="{{ menu.menu_key }}">
+                        <a href="{{ url_for(menu.menu_url) if menu.menu_url else '#' }}" style="text-decoration: none; color: inherit; display: flex; align-items: center; width: 100%;">
+                            <i class="{{ menu.menu_icon }}" style="margin-right: 8px;"></i>
+                            <span>{{ menu.menu_name }}</span>
+                        </a>
+                    </el-menu-item>
+                    {% endfor %}
+                </el-menu>
+            </div>
+            
+            <!-- 内容区域 -->
+            <div class="admin-content">
+                <div class="page-container">
+                    <!-- 页面头部 -->
+                    <div class="page-header">
+                        <div class="page-title">
+                            <div class="page-title-left">
+                                {% block page_icon %}<i class="fas fa-home"></i>{% endblock %}
+                                {% block page_title %}页面标题{% endblock %}
+                            </div>
+                            <div>
+                                {% block page_actions %}{% endblock %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 页面内容 -->
+                    <div class="page-content">
+                        <!-- 消息提示 -->
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                <el-alert
+                                    title="{{ message }}"
+                                    type="{% if category == 'error' %}error{% elif category == 'warning' %}warning{% elif category == 'success' %}success{% else %}info{% endif %}"
+                                    :closable="true"
+                                    style="margin-bottom: 20px;">
+                                </el-alert>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                        
+                        {% block content %}{% endblock %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Vue.js 应用初始化 -->
+    <script>
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    activeMenu: '{% block active_menu %}dashboard{% endblock %}',
+                    {% block vue_data %}{% endblock %}
+                }
+            },
+            methods: {
+                {% block vue_methods %}{% endblock %}
+            },
+            mounted() {
+                {% block vue_mounted %}{% endblock %}
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

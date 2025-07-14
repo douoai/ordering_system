@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}订单成功 - 发财小狗饮品店{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="mb-4">
+                    <i class="fas fa-check-circle fa-5x text-success"></i>
+                </div>
+                <h2 class="text-success mb-3">订单提交成功！</h2>
+                <p class="lead">您的订单已成功提交，等待管理员确认。</p>
+                
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">订单详情</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-2">
+                            <div class="col-sm-4"><strong>订单号:</strong></div>
+                            <div class="col-sm-8">#{{ order.id }}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4"><strong>下单时间:</strong></div>
+                            <div class="col-sm-8">{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4"><strong>订单金额:</strong></div>
+                            <div class="col-sm-8 text-primary"><strong>¥{{ "%.2f"|format(order.total_amount) }}</strong></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-sm-4"><strong>订单状态:</strong></div>
+                            <div class="col-sm-8"><span class="badge bg-warning">待确认</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    {% if order.status == 'pending' %}
+                    <a href="{{ url_for('main.payment', order_id=order.id) }}" class="btn btn-success btn-lg me-2">
+                        <i class="fas fa-credit-card"></i> 立即支付
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('main.order_detail', order_id=order.id) }}"
+                       class="btn btn-primary me-2">
+                        <i class="fas fa-receipt"></i> 查看订单详情
+                    </a>
+                    <a href="{{ url_for('main.my_orders', phone=order.user.phone) }}"
+                       class="btn btn-outline-info me-2">
+                        <i class="fas fa-list-alt"></i> 我的所有订单
+                    </a>
+                    <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-home"></i> 返回首页
+                    </a>
+                    <a href="{{ url_for('main.order') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-plus"></i> 继续下单
+                    </a>
+                </div>
+                
+                <div class="alert alert-info mt-4">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>温馨提示：</strong>管理员会在24小时内处理您的订单，请耐心等待。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

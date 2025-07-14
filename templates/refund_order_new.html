@@ -1,0 +1,846 @@
+{% extends "base.html" %}
+
+{% block title %}申请退款 - 发财小狗饮品店{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+    }
+
+    .refund-container {
+        max-width: 1200px;
+        margin: 20px auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        padding: 0 20px;
+    }
+
+    .left-panel, .right-panel {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+
+    .refund-header {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        color: white;
+        padding: 30px;
+        text-align: center;
+    }
+
+    .refund-header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 600;
+    }
+
+    .refund-header p {
+        margin: 10px 0 0 0;
+        opacity: 0.9;
+        font-size: 16px;
+    }
+
+    .refund-content {
+        padding: 40px;
+    }
+
+    .order-info {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        border-left: 5px solid #ff6b6b;
+    }
+
+    .order-info h3 {
+        margin: 0 0 15px 0;
+        color: #2c3e50;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .order-detail {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .detail-label {
+        font-weight: 600;
+        color: #666;
+    }
+
+    .detail-value {
+        color: #2c3e50;
+        font-weight: 500;
+    }
+
+    .refund-form {
+        background: #fff;
+        border-radius: 15px;
+        padding: 30px;
+        border: 2px solid #f1f2f6;
+    }
+
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 16px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+    }
+
+    .form-textarea {
+        min-height: 120px;
+        resize: vertical;
+        font-family: inherit;
+    }
+
+    .char-count {
+        text-align: right;
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+
+    .upload-section {
+        background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+        border: 2px dashed #ff6b6b;
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+        margin: 25px 0;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .upload-section:hover {
+        border-color: #ff5252;
+        background: linear-gradient(135deg, #fff0f0 0%, #ffd0d0 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 107, 107, 0.2);
+    }
+
+    .upload-section.dragover {
+        border-color: #4CAF50;
+        background: linear-gradient(135deg, #f0fff0 0%, #d0ffd0 100%);
+        transform: scale(1.02);
+    }
+
+    .upload-icon {
+        font-size: 48px;
+        color: #ff6b6b;
+        margin-bottom: 15px;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    .upload-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: #ff6b6b;
+        margin-bottom: 10px;
+    }
+
+    .upload-hint {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .file-input {
+        display: none;
+    }
+
+    .preview-area {
+        margin-top: 20px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        display: none;
+    }
+
+    .preview-image {
+        max-width: 100%;
+        max-height: 200px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 15px;
+    }
+
+    .file-info {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #4CAF50;
+    }
+
+    .file-actions {
+        margin-top: 15px;
+        text-align: center;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+        margin: 0 5px;
+    }
+
+    .btn-primary {
+        background: #ff6b6b;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #ff5252;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+    }
+
+    .btn-success {
+        background: #28a745;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #218838;
+        transform: translateY(-2px);
+    }
+
+    .alert {
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin: 15px 0;
+        font-weight: 500;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-warning {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+
+    .alert-danger {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .policy-section {
+        background: #e3f2fd;
+        border-radius: 15px;
+        padding: 25px;
+        margin: 25px 0;
+        border-left: 5px solid #2196F3;
+    }
+
+    .policy-section h4 {
+        margin: 0 0 15px 0;
+        color: #1976D2;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .policy-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .policy-list li {
+        padding: 8px 0;
+        color: #424242;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .policy-list li:before {
+        content: "✓";
+        color: #4CAF50;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    /* 可视化分区样式 */
+    .section-divider {
+        height: 3px;
+        background: linear-gradient(90deg, #ff6b6b 0%, #4facfe 50%, #28a745 100%);
+        margin: 20px 0;
+        border-radius: 2px;
+    }
+
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 20px 0;
+        gap: 15px;
+    }
+
+    .step {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        position: relative;
+    }
+
+    .step.active {
+        background: #ff6b6b;
+        box-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+    }
+
+    .step.completed {
+        background: #28a745;
+    }
+
+    .step.pending {
+        background: #ddd;
+        color: #999;
+    }
+
+    .step-line {
+        width: 50px;
+        height: 3px;
+        background: #ddd;
+        border-radius: 2px;
+    }
+
+    .step-line.active {
+        background: #ff6b6b;
+    }
+
+    /* 卡片悬浮效果 */
+    .left-panel, .right-panel {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .left-panel:hover, .right-panel:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 25px 70px rgba(0,0,0,0.2);
+    }
+
+    /* 移动端响应式设计 */
+    @media (max-width: 1024px) {
+        .refund-container {
+            grid-template-columns: 1fr;
+            max-width: 800px;
+            gap: 15px;
+        }
+
+        .left-panel, .right-panel {
+            margin: 0;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .refund-container {
+            margin: 10px;
+            padding: 0 10px;
+        }
+
+        .refund-content {
+            padding: 20px;
+        }
+
+        .order-detail {
+            grid-template-columns: 1fr;
+        }
+
+        .refund-header h1, .refund-header h2 {
+            font-size: 20px;
+        }
+
+        .step-indicator {
+            gap: 10px;
+        }
+
+        .step {
+            width: 35px;
+            height: 35px;
+            font-size: 14px;
+        }
+
+        .step-line {
+            width: 30px;
+            height: 2px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .refund-header {
+            padding: 20px;
+        }
+
+        .refund-header h1, .refund-header h2 {
+            font-size: 18px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            font-size: 14px;
+            margin: 5px;
+            display: block;
+            width: calc(100% - 10px);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面标题 -->
+<div style="text-align: center; margin: 20px 0; color: white;">
+    <h1 style="font-size: 32px; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+        <i class="fas fa-undo-alt"></i> 申请退款
+    </h1>
+    <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 18px;">发财小狗饮品店 - 我们重视每一位客户的体验</p>
+</div>
+
+<div class="refund-container">
+    <!-- 左侧面板：订单信息和政策 -->
+    <div class="left-panel">
+        <!-- 订单信息区域 -->
+        <div class="refund-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <h2 style="margin: 0; font-size: 24px;"><i class="fas fa-receipt"></i> 订单详情</h2>
+            <p style="margin: 8px 0 0 0; opacity: 0.9;">订单 #{{ order.id }}</p>
+        </div>
+
+        <div class="refund-content">
+            <div class="order-info" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-left: 5px solid #4facfe;">
+                <div class="order-detail">
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-hashtag"></i> 订单号:</span>
+                        <span class="detail-value">#{{ order.id }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-info-circle"></i> 订单状态:</span>
+                        <span class="detail-value" style="color: {% if order.status == 'paid' %}#28a745{% elif order.status == 'pending' %}#ffc107{% else %}#6c757d{% endif %};">
+                            {{ order.status_display }}
+                        </span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-money-bill-wave"></i> 订单金额:</span>
+                        <span class="detail-value" style="color: #e74c3c; font-weight: bold; font-size: 18px;">¥{{ "%.2f"|format(order.total_amount) }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-clock"></i> 下单时间:</span>
+                        <span class="detail-value">{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 订单商品列表 -->
+            <div style="margin-top: 25px;">
+                <h4 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-shopping-cart"></i> 商品清单</h4>
+                <div style="background: #fff; border-radius: 10px; border: 1px solid #e9ecef;">
+                    {% for item in order.items %}
+                    <div style="padding: 15px; border-bottom: 1px solid #f8f9fa; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600; color: #2c3e50;">{{ item.drink_product.name }}</div>
+                            <div style="font-size: 12px; color: #6c757d; margin-top: 5px;">
+                                {% if item.size %}{{ item.size }}{% endif %}
+                                {% if item.temperature %} | {{ item.temperature }}{% endif %}
+                                {% if item.sugar_level %} | {{ item.sugar_level }}{% endif %}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600; color: #e74c3c;">¥{{ "%.2f"|format(item.subtotal) }}</div>
+                            <div style="font-size: 12px; color: #6c757d;">x{{ item.quantity }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 退款政策 -->
+            <div class="policy-section" style="background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border-left: 5px solid #28a745;">
+                <h4 style="color: #155724;"><i class="fas fa-shield-alt"></i> 退款政策</h4>
+                <ul class="policy-list">
+                    {% if order.needs_refund_approval %}
+                    <li>已付款订单需要管理员审批退款申请</li>
+                    <li>请上传您的收款二维码，我们将通过扫码转账退款</li>
+                    <li>退款申请提交后，我们会在24小时内处理</li>
+                    <li>退款成功后，您将收到确认通知</li>
+                    {% else %}
+                    <li>待确认订单可以立即退款</li>
+                    <li>退款后订单状态将变为"已取消"</li>
+                    <li>如有疑问请联系客服</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧面板：退款申请表单 -->
+    <div class="right-panel">
+        <div class="refund-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+            <h2 style="margin: 0; font-size: 24px;"><i class="fas fa-edit"></i> 退款申请</h2>
+            <p style="margin: 8px 0 0 0; opacity: 0.9;">请填写以下信息</p>
+        </div>
+
+        <div class="refund-content">
+
+            <!-- 退款表单 -->
+            <form method="POST" enctype="multipart/form-data" id="refundForm" class="refund-form" style="border: none; padding: 30px;">
+                <!-- 可视化步骤指示器 -->
+                <div class="step-indicator">
+                    <div class="step active" title="填写退款原因">
+                        <i class="fas fa-edit"></i>
+                    </div>
+                    <div class="step-line {% if order.needs_refund_approval %}active{% endif %}"></div>
+                    {% if order.needs_refund_approval %}
+                    <div class="step active" title="上传收款二维码">
+                        <i class="fas fa-qrcode"></i>
+                    </div>
+                    <div class="step-line"></div>
+                    {% endif %}
+                    <div class="step pending" title="完成申请">
+                        <i class="fas fa-check"></i>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; font-size: 14px;">
+                        {% if order.needs_refund_approval %}
+                        <i class="fas fa-info-circle"></i> 已付款订单需要上传收款二维码并等待审批
+                        {% else %}
+                        <i class="fas fa-bolt"></i> 待确认订单可以立即退款
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 分区分隔线 -->
+                <div class="section-divider"></div>
+            
+            <!-- 退款原因 -->
+            <div class="form-group">
+                <label for="refund_reason" class="form-label">
+                    <i class="fas fa-comment-alt"></i> 退款原因 <span style="color: #e74c3c;">*</span>
+                </label>
+                <textarea 
+                    id="refund_reason" 
+                    name="refund_reason" 
+                    class="form-control form-textarea" 
+                    placeholder="请详细说明退款原因，这将帮助我们改进服务质量..."
+                    required
+                    maxlength="500"></textarea>
+                <div class="char-count" id="charCount">0/500 字符</div>
+            </div>
+
+            <!-- 文件上传区域（仅已付款订单需要） -->
+            {% if order.needs_refund_approval %}
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-qrcode"></i> 收款二维码 <span style="color: #e74c3c;">*</span>
+                </label>
+                <div class="upload-section" id="uploadArea">
+                    <div class="upload-icon">📱</div>
+                    <div class="upload-text">点击或拖拽上传收款二维码</div>
+                    <div class="upload-hint">
+                        支持 JPG、PNG、GIF 格式，文件大小不超过 5MB<br>
+                        请上传您的微信或支付宝收款二维码
+                    </div>
+                </div>
+                <input type="file" id="fileInput" name="refund_qr_code" class="file-input" accept="image/*" required>
+                
+                <div class="preview-area" id="previewArea">
+                    <img id="previewImage" class="preview-image" alt="二维码预览">
+                    <div class="file-info" id="fileInfo"></div>
+                    <div class="file-actions">
+                        <button type="button" class="btn btn-secondary" onclick="clearFile()">
+                            <i class="fas fa-trash"></i> 重新选择
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 提交按钮 -->
+            <div style="text-align: center; margin-top: 30px;">
+                {% if order.needs_refund_approval %}
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="fas fa-paper-plane"></i> 提交退款申请
+                </button>
+                {% else %}
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="fas fa-undo"></i> 立即退款
+                </button>
+                {% endif %}
+                <a href="{{ url_for('main.order_detail', order_id=order.id) }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> 返回订单
+                </a>
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="messageArea"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取DOM元素
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const previewArea = document.getElementById('previewArea');
+    const previewImage = document.getElementById('previewImage');
+    const fileInfo = document.getElementById('fileInfo');
+    const messageArea = document.getElementById('messageArea');
+    const refundReason = document.getElementById('refund_reason');
+    const charCount = document.getElementById('charCount');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('refundForm');
+
+    let selectedFile = null;
+
+    // 字符计数
+    if (refundReason && charCount) {
+        refundReason.addEventListener('input', function() {
+            const length = this.value.length;
+            charCount.textContent = `${length}/500 字符`;
+
+            if (length < 10) {
+                charCount.style.color = '#e74c3c';
+            } else if (length > 450) {
+                charCount.style.color = '#f39c12';
+            } else {
+                charCount.style.color = '#27ae60';
+            }
+        });
+    }
+
+    // 文件上传功能（仅在需要时初始化）
+    if (uploadArea && fileInput) {
+        // 点击上传区域
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        // 拖拽事件
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            if (!uploadArea.contains(e.relatedTarget)) {
+                uploadArea.classList.remove('dragover');
+            }
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+    }
+
+    // 处理文件
+    function handleFile(file) {
+        console.log('处理文件:', file);
+
+        // 验证文件类型
+        if (!file.type.startsWith('image/')) {
+            showMessage('请选择图片文件（JPG、PNG、GIF格式）', 'error');
+            return;
+        }
+
+        // 验证文件大小（5MB）
+        if (file.size > 5 * 1024 * 1024) {
+            showMessage('文件大小不能超过5MB，请选择更小的图片', 'error');
+            return;
+        }
+
+        selectedFile = file;
+
+        // 显示预览
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImage.src = e.target.result;
+            previewArea.style.display = 'block';
+            uploadArea.style.display = 'none';
+
+            // 显示文件信息
+            fileInfo.innerHTML = `
+                <div style="margin-bottom: 10px;"><strong>文件名:</strong> ${file.name}</div>
+                <div style="margin-bottom: 10px;"><strong>文件大小:</strong> ${formatFileSize(file.size)}</div>
+                <div><strong>文件类型:</strong> ${file.type}</div>
+            `;
+
+            showMessage('收款二维码上传成功！', 'success');
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+    // 清除文件
+    window.clearFile = function() {
+        selectedFile = null;
+        fileInput.value = '';
+        previewArea.style.display = 'none';
+        uploadArea.style.display = 'block';
+        showMessage('文件已清除，请重新选择', 'warning');
+    };
+
+    // 显示消息
+    function showMessage(message, type) {
+        const alertClass = type === 'error' ? 'alert-danger' :
+                          type === 'warning' ? 'alert-warning' : 'alert-success';
+
+        messageArea.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+
+        // 滚动到消息区域
+        messageArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        // 3秒后自动清除
+        setTimeout(() => {
+            messageArea.innerHTML = '';
+        }, 3000);
+    }
+
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 表单提交
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // 验证退款原因
+        const reason = refundReason.value.trim();
+        if (reason.length < 10) {
+            showMessage('请填写至少10个字符的退款原因', 'error');
+            refundReason.focus();
+            return;
+        }
+
+        // 验证文件上传（如果需要）
+        const needsFile = {{ 'true' if order.needs_refund_approval else 'false' }};
+        if (needsFile && !selectedFile) {
+            showMessage('请上传您的收款二维码', 'error');
+            return;
+        }
+
+        // 确认提交
+        const isApproval = {{ 'true' if order.needs_refund_approval else 'false' }};
+        const title = isApproval ? '确认提交退款申请？' : '确认立即退款？';
+        const text = isApproval ?
+            '我们会在收到申请后尽快审核，审核通过后将通过您上传的二维码转账退款。' :
+            '退款将立即生效，订单状态将变为已取消。';
+
+        Swal.fire({
+            title: title,
+            text: text,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#ff6b6b',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '确认提交',
+            cancelButtonText: '取消'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 显示加载状态
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                submitBtn.disabled = true;
+
+                // 提交表单
+                form.submit();
+            }
+        });
+    });
+
+    // 页面加载完成提示
+    showMessage('页面加载完成，请填写退款信息', 'success');
+});
+</script>
+{% endblock %}

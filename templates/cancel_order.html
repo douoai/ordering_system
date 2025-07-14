@@ -1,0 +1,773 @@
+{% extends "base.html" %}
+
+{% block title %}取消订单 - 发财小狗饮品店{% endblock %}
+
+{% block extra_css %}
+<!-- Element UI CSS -->
+<link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+<style>
+/* 取消订单页面样式 */
+.cancel-form-container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* 页面头部 */
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 0;
+    margin: -20px -15px 30px -15px;
+    text-align: center;
+    border-radius: 0 0 25px 25px;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+}
+
+.page-header h4 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 20px;
+}
+
+.page-header .subtitle {
+    margin-top: 5px;
+    opacity: 0.9;
+    font-size: 14px;
+}
+
+.cancel-warning {
+    background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+    color: #721c24;
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 25px;
+    text-align: center;
+    border: 1px solid rgba(255, 107, 107, 0.2);
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.15);
+}
+
+.cancel-warning i {
+    font-size: 50px;
+    margin-bottom: 15px;
+    color: #dc3545;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.cancel-warning h5 {
+    margin-bottom: 10px;
+    font-weight: 700;
+    color: #721c24;
+}
+
+.cancel-warning p {
+    margin: 0;
+    font-weight: 500;
+}
+
+.order-summary {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 25px;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.order-summary h6 {
+    color: #495057;
+    margin-bottom: 20px;
+    font-weight: 700;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.order-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 8px 0;
+}
+
+.order-info:last-child {
+    margin-bottom: 0;
+    padding-top: 15px;
+    border-top: 2px solid #dee2e6;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.order-info span:first-child {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.order-info span:last-child {
+    font-weight: 600;
+    color: #495057;
+}
+
+.cancel-reason-form {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    border: 1px solid #f1f3f4;
+}
+
+.form-label {
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 12px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-control {
+    border-radius: 15px;
+    border: 2px solid #e9ecef;
+    padding: 15px 20px;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 120px;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    transform: translateY(-1px);
+}
+
+.form-control::placeholder {
+    color: #adb5bd;
+    font-style: italic;
+}
+
+.form-text {
+    color: #6c757d;
+    font-size: 13px;
+    margin-top: 8px;
+    font-weight: 500;
+}
+
+.btn-cancel-confirm {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+    border: none;
+    border-radius: 15px;
+    padding: 15px 35px;
+    font-weight: 700;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+
+.btn-cancel-confirm:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+    background: linear-gradient(135deg, #ff5252 0%, #d32f2f 100%);
+}
+
+.btn-back {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    border: none;
+    border-radius: 15px;
+    padding: 15px 35px;
+    font-weight: 700;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+}
+
+.btn-back:hover {
+    background: linear-gradient(135deg, #5a6268 0%, #343a40 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+}
+
+.cancel-policy {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border: 1px solid #ffeaa7;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(255, 193, 7, 0.1);
+}
+
+.cancel-policy h6 {
+    color: #856404;
+    margin-bottom: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cancel-policy ul {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.cancel-policy li {
+    color: #856404;
+    margin-bottom: 8px;
+    padding-left: 25px;
+    position: relative;
+    font-weight: 500;
+}
+
+.cancel-policy li:before {
+    content: "•";
+    color: #ffc107;
+    font-weight: bold;
+    position: absolute;
+    left: 8px;
+    font-size: 16px;
+}
+
+/* 按钮容器 */
+.button-container {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+/* 动画效果 */
+.cancel-form-container > * {
+    animation: slideInUp 0.6s ease-out;
+}
+
+.cancel-warning {
+    animation-delay: 0.1s;
+}
+
+.order-summary {
+    animation-delay: 0.2s;
+}
+
+.cancel-policy {
+    animation-delay: 0.3s;
+}
+
+.cancel-reason-form {
+    animation-delay: 0.4s;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 悬停效果 */
+.order-summary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    transition: all 0.3s ease;
+}
+
+.cancel-policy:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(255, 193, 7, 0.15);
+    transition: all 0.3s ease;
+}
+
+.cancel-reason-form:hover {
+    box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+
+/* 输入框聚焦动画 */
+.form-control:focus {
+    animation: inputFocus 0.3s ease-out;
+}
+
+@keyframes inputFocus {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.02);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* 响应式优化 */
+@media (max-width: 576px) {
+    .cancel-form-container {
+        padding: 0 10px;
+    }
+
+    .page-header {
+        margin: -20px -10px 20px -10px;
+        padding: 15px 0;
+    }
+
+    .cancel-warning, .order-summary, .cancel-reason-form {
+        padding: 20px;
+    }
+
+    .button-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .btn-cancel-confirm, .btn-back {
+        width: 100%;
+        padding: 12px 25px;
+    }
+
+    .page-header h4 {
+        font-size: 18px;
+    }
+
+    .cancel-warning i {
+        font-size: 40px;
+    }
+}
+
+/* Element UI 上传组件自定义样式 */
+.qr-upload .el-upload-dragger {
+    width: 100%;
+    height: 180px;
+    border: 3px dashed #ff6b6b;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 235, 235, 0.8) 100%);
+    transition: all 0.3s ease;
+}
+
+.qr-upload .el-upload-dragger:hover {
+    border-color: #ff5252;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(255, 220, 220, 0.9) 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 35px rgba(255, 107, 107, 0.25);
+}
+
+.qr-upload .el-upload-list--picture-card .el-upload-list__item {
+    border-radius: 15px;
+    border: 3px solid #ff6b6b;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.qr-upload .el-upload--picture-card {
+    border: none;
+    background: transparent;
+}
+
+.qr-upload .el-upload-dragger .el-icon-upload {
+    animation: float 3s ease-in-out infinite;
+}
+
+.qr-upload .el-upload__tip {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.upload-section {
+    background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+    border: 2px solid #ffcdd2;
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.1);
+}
+
+.upload-section h6 {
+    color: #c62828;
+    margin-bottom: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.upload-section .upload-hint {
+    color: #d32f2f;
+    font-size: 14px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 10px;
+    border-left: 4px solid #ff6b6b;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="cancelApp" class="container mt-4">
+    <div class="cancel-form-container">
+        <!-- 页面头部 -->
+        <div class="page-header">
+            <h4><i class="fas fa-times-circle"></i> 取消订单</h4>
+            <div class="subtitle">发财小狗饮品店</div>
+        </div>
+
+        <!-- 取消警告 -->
+        <div class="cancel-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h5>确认取消订单？</h5>
+            <p class="mb-0">
+                {% if order.can_cancel_directly %}
+                订单将立即取消，无法恢复
+                {% else %}
+                取消申请将提交给管理员审批
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- 订单摘要 -->
+        <div class="order-summary">
+            <h6><i class="fas fa-receipt"></i> 订单信息</h6>
+            <div class="order-info">
+                <span>订单号:</span>
+                <span>#{{ order.id }}</span>
+            </div>
+            <div class="order-info">
+                <span>下单时间:</span>
+                <span>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+            <div class="order-info">
+                <span>订单状态:</span>
+                <span>
+                    {% if order.status == 'pending' %}
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">
+                            <i class="fas fa-clock"></i> {{ order.status_display }}
+                        </span>
+                    {% elif order.status == 'confirmed' %}
+                        <span class="badge bg-success px-3 py-2 rounded-pill">
+                            <i class="fas fa-check-circle"></i> {{ order.status_display }}
+                        </span>
+                    {% elif order.status == 'paid' %}
+                        <span class="badge bg-primary px-3 py-2 rounded-pill">
+                            <i class="fas fa-credit-card"></i> {{ order.status_display }}
+                        </span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="order-info">
+                <span>订单金额:</span>
+                <span class="text-danger">¥{{ "%.2f"|format(order.total_amount) }}</span>
+            </div>
+        </div>
+
+        <!-- 取消政策 -->
+        <div class="cancel-policy">
+            <h6><i class="fas fa-info-circle"></i> 取消政策</h6>
+            <ul>
+                {% if order.can_cancel_directly %}
+                <li>待确认订单可以随时取消</li>
+                <li>取消后订单状态将变为"已取消"</li>
+                <li>如有疑问请联系客服</li>
+                {% else %}
+                <li>已确认/已支付订单需要管理员审批</li>
+                <li>审批通过后订单将被取消</li>
+                <li>审批结果将通过系统通知</li>
+                {% if order.needs_cancel_qr_code %}
+                <li><strong>已付款订单需要上传收款二维码用于退款</strong></li>
+                {% endif %}
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- 收款二维码上传区域（仅已付款订单需要） -->
+        {% if order.needs_cancel_qr_code %}
+        <div class="upload-section">
+            <h6><i class="fas fa-qrcode"></i> 📱 上传您的收款二维码</h6>
+            <div class="upload-hint">
+                💡 由于您的订单已付款，取消后需要为您退款。请上传您的微信或支付宝收款二维码，我们的财务人员会通过扫码为您转账退款。
+            </div>
+
+            <!-- Element UI 上传组件 -->
+            <el-upload
+                class="qr-upload"
+                drag
+                action=""
+                :auto-upload="false"
+                :on-change="handleFileChange"
+                :before-upload="beforeUpload"
+                :file-list="fileList"
+                :limit="1"
+                :on-exceed="handleExceed"
+                accept="image/*"
+                list-type="picture-card">
+                <div class="el-upload__text">
+                    <i class="el-icon-upload" style="font-size: 48px; color: #ff6b6b;"></i>
+                    <div style="margin-top: 10px; color: #ff6b6b; font-weight: 600;">📤 点击或拖拽上传收款二维码</div>
+                    <div style="margin-top: 5px; color: #909399; font-size: 12px;">📋 支持 JPG、PNG、GIF 格式，文件大小不超过 5MB</div>
+                </div>
+                <div slot="tip" class="el-upload__tip" style="color: #909399; font-size: 12px; margin-top: 10px;">
+                    💡 您也可以直接拖拽图片到此区域
+                </div>
+            </el-upload>
+
+            <!-- 文件信息显示 -->
+            <div v-if="uploadedFile" style="margin-top: 20px;">
+                <el-alert
+                    title="收款二维码上传成功"
+                    type="success"
+                    :closable="false">
+                    <div>文件名: <span v-text="uploadedFile.name"></span></div>
+                    <div>文件大小: <span v-text="formatFileSize(uploadedFile.size)"></span></div>
+                    <div>文件类型: <span v-text="uploadedFile.type"></span></div>
+                </el-alert>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 取消原因表单 -->
+        <div class="cancel-reason-form">
+            <form method="POST" enctype="multipart/form-data" id="cancelForm">
+                <!-- 隐藏的文件输入，用于表单提交 -->
+                {% if order.needs_cancel_qr_code %}
+                <input type="file" id="cancelQrCodeFile" name="cancel_qr_code" accept="image/*" style="display: none;">
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="cancel_reason" class="form-label">
+                        <i class="fas fa-edit"></i> 取消原因 <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control"
+                              id="cancel_reason"
+                              name="cancel_reason"
+                              rows="5"
+                              placeholder="请详细说明取消订单的原因，例如：不需要了、选错商品、临时有事等..."
+                              maxlength="200"
+                              required></textarea>
+                    <div class="form-text">请详细说明取消原因，以便我们改进服务</div>
+                </div>
+
+                <div class="button-container">
+                    <a href="{{ url_for('main.order_detail', order_id=order.id) }}"
+                       class="btn btn-back text-white">
+                        <i class="fas fa-arrow-left"></i> 返回订单
+                    </a>
+                    <button type="submit" class="btn btn-cancel-confirm text-white">
+                        <i class="fas fa-times-circle"></i>
+                        {% if order.can_cancel_directly %}
+                        确认取消
+                        {% else %}
+                        提交申请
+                        {% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Vue.js -->
+<script src="https://unpkg.com/vue@2/dist/vue.js"></script>
+<!-- Element UI JS -->
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+
+<script>
+// 确保DOM加载完成后再初始化Vue
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('开始初始化Vue应用...');
+
+    // Vue.js 应用
+    new Vue({
+        el: '#cancelApp',
+    data: {
+        fileList: [],
+        uploadedFile: null,
+        cancelReason: '',
+        isSubmitting: false
+    },
+    methods: {
+        // 文件变化处理
+        handleFileChange(file, fileList) {
+            console.log('文件变化:', file, fileList);
+            this.fileList = fileList;
+            this.uploadedFile = file.raw;
+
+            // 将文件设置到隐藏的input中
+            const hiddenInput = document.getElementById('cancelQrCodeFile');
+            if (hiddenInput) {
+                const dt = new DataTransfer();
+                dt.items.add(file.raw);
+                hiddenInput.files = dt.files;
+            }
+        },
+
+        // 上传前验证
+        beforeUpload(file) {
+            console.log('上传前验证:', file);
+
+            // 检查文件类型
+            const isImage = file.type.startsWith('image/');
+            if (!isImage) {
+                this.$message.error('请选择图片文件（JPG、PNG、GIF格式）');
+                return false;
+            }
+
+            // 检查文件大小（5MB）
+            const isLt5M = file.size / 1024 / 1024 < 5;
+            if (!isLt5M) {
+                this.$message.error('文件大小不能超过5MB，请选择更小的图片');
+                return false;
+            }
+
+            this.$message.success('收款二维码上传成功！');
+            return false; // 阻止自动上传
+        },
+
+        // 文件数量超出限制
+        handleExceed(files, fileList) {
+            this.$message.warning('只能上传一个二维码文件，请先删除已上传的文件');
+        },
+
+        // 格式化文件大小
+        formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        // 表单提交验证
+        validateForm() {
+            // 验证取消原因
+            if (!this.cancelReason || this.cancelReason.trim().length < 5) {
+                this.$message.warning('请填写至少5个字符的取消原因');
+                return false;
+            }
+
+            if (this.cancelReason.length > 200) {
+                this.$message.warning('取消原因不能超过200个字符');
+                return false;
+            }
+
+            // 如果需要上传二维码，验证是否已上传
+            const needsQrCode = {{ 'true' if order.needs_cancel_qr_code else 'false' }};
+            if (needsQrCode && !this.uploadedFile) {
+                this.$message.warning('已付款订单取消需要上传收款二维码');
+                return false;
+            }
+
+            return true;
+        },
+
+        // 更新字符计数
+        updateCharacterCount() {
+            const textarea = document.getElementById('cancel_reason');
+            const formText = textarea ? textarea.nextElementSibling : null;
+
+            if (!formText) return;
+
+            const length = this.cancelReason.length;
+
+            if (length === 0) {
+                formText.textContent = '请详细说明取消原因，以便我们改进服务';
+                formText.className = 'form-text';
+            } else if (length < 5) {
+                formText.textContent = `请详细说明取消原因，以便我们改进服务（还需${5-length}个字符）`;
+                formText.className = 'form-text text-warning';
+            } else if (length >= 5 && length <= 200) {
+                formText.textContent = `很好！已输入${length}个字符`;
+                formText.className = 'form-text text-success';
+            } else {
+                formText.textContent = `字符过多，请控制在200字符以内（当前${length}个字符）`;
+                formText.className = 'form-text text-danger';
+            }
+        }
+    },
+    mounted() {
+        console.log('Vue应用已挂载到DOM');
+        console.log('Element UI版本:', this.$ELEMENT ? this.$ELEMENT.version : '未知');
+
+        // 测试Element UI是否正常工作
+        this.$message.success('Vue应用已成功初始化！');
+
+        // 绑定表单提交事件
+        const form = document.getElementById('cancelForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                if (!this.validateForm()) {
+                    e.preventDefault();
+                    return;
+                }
+
+                // 确认提交
+                const needsApproval = {{ 'true' if order.needs_cancel_approval else 'false' }};
+                const confirmMessage = needsApproval ?
+                    '确认要提交取消申请吗？需要等待管理员审批。' :
+                    '确认要取消此订单吗？取消后无法恢复。';
+
+                const confirmTitle = needsApproval ? '提交取消申请' : '确认取消订单';
+
+                e.preventDefault();
+
+                Swal.fire({
+                    icon: 'question',
+                    title: confirmTitle,
+                    text: confirmMessage,
+                    showCancelButton: true,
+                    confirmButtonText: '确认',
+                    cancelButtonText: '取消',
+                    confirmButtonColor: '#ff6b6b',
+                    cancelButtonColor: '#6c757d',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.isSubmitting = true;
+
+                        // 显示提交状态
+                        const submitBtn = form.querySelector('button[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+                            submitBtn.disabled = true;
+                        }
+
+                        form.submit();
+                    }
+                });
+            });
+        }
+
+        // 绑定取消原因输入框
+        const reasonInput = document.getElementById('cancel_reason');
+        if (reasonInput) {
+            reasonInput.addEventListener('input', (e) => {
+                this.cancelReason = e.target.value;
+                this.updateCharacterCount();
+            });
+        }
+    });
+
+    console.log('Vue应用初始化完成');
+});
+</script>
+
+<!-- 引入SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}

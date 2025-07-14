@@ -1,0 +1,92 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ action }}分类</h1>
+    <div>
+        <a href="{{ url_for('admin.categories') }}" class="btn btn-secondary">返回分类列表</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">分类信息</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">分类名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ category.name if category else '' }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">分类描述</label>
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ category.description if category else '' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="sort_order" class="form-label">排序顺序</label>
+                        <input type="number" class="form-control" id="sort_order" name="sort_order" min="0"
+                               value="{{ category.sort_order if category else 0 }}">
+                        <div class="form-text">数字越小排序越靠前</div>
+                    </div>
+                    
+                    {% if category %}
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                   {{ 'checked' if category.is_active else '' }}>
+                            <label class="form-check-label" for="is_active">
+                                启用分类
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin.categories') }}" class="btn btn-secondary me-md-2">取消</a>
+                        <button type="submit" class="btn btn-primary">{{ action }}分类</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">操作说明</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-info-circle text-info"></i> 分类名称为必填项且不能重复</li>
+                    <li><i class="fas fa-info-circle text-info"></i> 排序顺序决定分类在前台的显示顺序</li>
+                    <li><i class="fas fa-info-circle text-info"></i> 禁用的分类不会在产品表单中显示</li>
+                    <li><i class="fas fa-info-circle text-info"></i> 有关联产品的分类无法删除</li>
+                </ul>
+            </div>
+        </div>
+        
+        {% if category and category.related_products %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">关联产品 ({{ category.related_products|length }})</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    {% for product in category.related_products[:5] %}
+                    <li><i class="fas fa-coffee text-muted"></i> {{ product.name }}</li>
+                    {% endfor %}
+                    {% if category.related_products|length > 5 %}
+                    <li class="text-muted">... 还有 {{ category.related_products|length - 5 }} 个产品</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

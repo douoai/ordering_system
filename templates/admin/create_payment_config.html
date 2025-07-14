@@ -1,0 +1,242 @@
+{% extends "admin/base.html" %}
+
+{% block title %}添加收款码 - 发财小狗饮品店{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-plus"></i> 添加收款码
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin.payment_config') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 返回列表
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-qrcode"></i> 收款码信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="payment_type" class="form-label">支付类型 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="payment_type" name="payment_type" required>
+                                    <option value="">请选择支付类型</option>
+                                    <option value="wechat">微信支付</option>
+                                    <option value="alipay">支付宝</option>
+                                    <option value="other">其他方式</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="payment_name" class="form-label">支付方式名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="payment_name" name="payment_name" required>
+                                <div class="form-text">如：微信扫码支付、支付宝收款等</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="qr_code_file" class="form-label">上传二维码图片</label>
+                        <input type="file" class="form-control" id="qr_code_file" name="qr_code_file" 
+                               accept="image/*" onchange="previewImage(this)">
+                        <div class="form-text">支持 JPG、PNG、GIF 格式，建议尺寸 300x300 像素</div>
+                        
+                        <!-- 图片预览 -->
+                        <div id="image_preview" class="mt-3" style="display: none;">
+                            <img id="preview_img" src="" alt="预览" class="img-thumbnail" style="max-width: 200px;">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="qr_code_url" class="form-label">或输入二维码图片URL</label>
+                        <input type="url" class="form-control" id="qr_code_url" name="qr_code_url">
+                        <div class="form-text">如果不上传文件，可以输入在线图片地址</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="account_name" class="form-label">收款账户名</label>
+                                <input type="text" class="form-control" id="account_name" name="account_name">
+                                <div class="form-text">显示给用户的收款账户名称</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="sort_order" class="form-label">排序</label>
+                                <input type="number" class="form-control" id="sort_order" name="sort_order" value="0" min="0">
+                                <div class="form-text">数字越小越靠前显示</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="account_info" class="form-label">账户信息</label>
+                        <textarea class="form-control" id="account_info" name="account_info" rows="3"></textarea>
+                        <div class="form-text">可选的账户说明信息，如账号、备注等</div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin.payment_config') }}" class="btn btn-secondary me-md-2">取消</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> 创建收款码
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle"></i> 配置说明
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fab fa-weixin text-success"></i>
+                        <strong>微信支付：</strong>上传微信收款码
+                    </li>
+                    <li class="mb-2">
+                        <i class="fab fa-alipay text-primary"></i>
+                        <strong>支付宝：</strong>上传支付宝收款码
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-qrcode text-info"></i>
+                        <strong>其他方式：</strong>银行转账等其他收款码
+                    </li>
+                </ul>
+                
+                <hr>
+                
+                <h6>图片要求</h6>
+                <ul class="list-unstyled small">
+                    <li class="mb-1">✓ 清晰可扫描的二维码</li>
+                    <li class="mb-1">✓ 建议尺寸：300x300像素</li>
+                    <li class="mb-1">✓ 支持格式：JPG、PNG、GIF</li>
+                    <li class="mb-1">✓ 文件大小：不超过5MB</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb"></i> 使用建议
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled small">
+                    <li class="mb-1">💡 设置清晰的支付方式名称</li>
+                    <li class="mb-1">💡 合理安排显示顺序</li>
+                    <li class="mb-1">💡 添加收款账户信息便于识别</li>
+                    <li class="mb-1">💡 定期检查二维码有效性</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 支付类型图标预览 -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-eye"></i> 图标预览
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div id="icon_preview">
+                    <i class="fas fa-qrcode fa-3x text-muted"></i>
+                    <p class="mt-2 text-muted">选择支付类型查看图标</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 图片预览
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('preview_img').src = e.target.result;
+            document.getElementById('image_preview').style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// 支付类型变化时更新图标和名称
+document.getElementById('payment_type').addEventListener('change', function() {
+    const type = this.value;
+    const iconPreview = document.getElementById('icon_preview');
+    const paymentNameInput = document.getElementById('payment_name');
+    
+    let icon = '';
+    let name = '';
+    
+    switch(type) {
+        case 'wechat':
+            icon = '<i class="fab fa-weixin fa-3x text-success"></i><p class="mt-2 text-success">微信支付</p>';
+            name = '微信扫码支付';
+            break;
+        case 'alipay':
+            icon = '<i class="fab fa-alipay fa-3x text-primary"></i><p class="mt-2 text-primary">支付宝</p>';
+            name = '支付宝扫码支付';
+            break;
+        case 'other':
+            icon = '<i class="fas fa-qrcode fa-3x text-info"></i><p class="mt-2 text-info">其他支付</p>';
+            name = '扫码支付';
+            break;
+        default:
+            icon = '<i class="fas fa-qrcode fa-3x text-muted"></i><p class="mt-2 text-muted">选择支付类型查看图标</p>';
+            name = '';
+    }
+    
+    iconPreview.innerHTML = icon;
+    if (name && !paymentNameInput.value) {
+        paymentNameInput.value = name;
+    }
+});
+
+// 表单验证
+document.querySelector('form').addEventListener('submit', function(e) {
+    const fileInput = document.getElementById('qr_code_file');
+    const urlInput = document.getElementById('qr_code_url');
+    
+    if (!fileInput.files.length && !urlInput.value.trim()) {
+        e.preventDefault();
+        alert('请上传二维码图片或输入图片URL');
+        return false;
+    }
+});
+</script>
+
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.img-thumbnail {
+    border: 2px solid #dee2e6;
+    padding: 10px;
+    background: white;
+}
+
+#icon_preview {
+    transition: all 0.3s ease;
+}
+</style>
+{% endblock %}

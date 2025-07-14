@@ -1,0 +1,212 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ action }}PushDeer配置 - 管理后台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-bell text-primary"></i> {{ action }}PushDeer配置
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin.pushdeer_configs') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 返回列表
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">配置信息</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">配置名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ config.name if config else '' }}" required>
+                        <div class="form-text">为此配置起一个便于识别的名称</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="pushkey" class="form-label">PushKey <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="pushkey" name="pushkey" 
+                                   value="{{ config.pushkey if config else '' }}" required
+                                   placeholder="PDU...">
+                            <button type="button" class="btn btn-outline-secondary" onclick="testPushKey()">
+                                <i class="fas fa-paper-plane"></i> 测试
+                            </button>
+                        </div>
+                        <div class="form-text">在PushDeer客户端的"Key"页面生成的推送密钥</div>
+                        <div id="testResult" class="mt-2"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="endpoint" class="form-label">API端点</label>
+                        <input type="url" class="form-control" id="endpoint" name="endpoint" 
+                               value="{{ config.endpoint if config else 'https://api2.pushdeer.com' }}">
+                        <div class="form-text">
+                            官方服务使用 <code>https://api2.pushdeer.com</code>，自建服务请填入您的服务器地址
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">配置描述</label>
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ config.description if config else '' }}</textarea>
+                        <div class="form-text">可选的配置说明</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">推送事件</label>
+                        {% set events = config.get_events_config() if config else {} %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="new_order" name="new_order" 
+                                   {{ 'checked' if events.get('new_order') else '' }}>
+                            <label class="form-check-label" for="new_order">
+                                <i class="fas fa-plus-circle text-primary"></i> 新订单通知
+                            </label>
+                            <div class="form-text">当有新订单时发送推送通知</div>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="order_confirmed" name="order_confirmed" 
+                                   {{ 'checked' if events.get('order_confirmed') else '' }}>
+                            <label class="form-check-label" for="order_confirmed">
+                                <i class="fas fa-check-circle text-success"></i> 订单确认通知
+                            </label>
+                            <div class="form-text">当订单被确认时发送推送通知</div>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="order_cancelled" name="order_cancelled"
+                                   {{ 'checked' if events.get('order_cancelled') else '' }}>
+                            <label class="form-check-label" for="order_cancelled">
+                                <i class="fas fa-times-circle text-danger"></i> 订单取消通知
+                            </label>
+                            <div class="form-text">当订单被取消时发送推送通知</div>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="order_refunded" name="order_refunded"
+                                   {{ 'checked' if events.get('order_refunded') else '' }}>
+                            <label class="form-check-label" for="order_refunded">
+                                <i class="fas fa-undo text-warning"></i> 订单退款通知
+                            </label>
+                            <div class="form-text">当客户申请退款时发送推送通知</div>
+                        </div>
+                    </div>
+                    
+                    {% if config %}
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                   {{ 'checked' if config.is_active else '' }}>
+                            <label class="form-check-label" for="is_active">
+                                启用此配置
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin.pushdeer_configs') }}" class="btn btn-secondary me-md-2">取消</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> {{ action }}配置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">使用说明</h6>
+            </div>
+            <div class="card-body">
+                <h6><i class="fas fa-mobile-alt text-primary"></i> 获取PushKey</h6>
+                <ol class="small">
+                    <li>下载并安装PushDeer客户端</li>
+                    <li>使用Apple ID或微信登录</li>
+                    <li>在"设备"页面注册当前设备</li>
+                    <li>在"Key"页面生成新的PushKey</li>
+                    <li>复制PushKey到上方表单中</li>
+                </ol>
+                
+                <hr>
+                
+                <h6><i class="fas fa-server text-info"></i> 自建服务</h6>
+                <p class="small">如果您使用自建的PushDeer服务，请将API端点修改为您的服务器地址，格式如：</p>
+                <code class="small">https://your-domain.com:8800</code>
+                
+                <hr>
+                
+                <h6><i class="fas fa-bell text-warning"></i> 推送事件</h6>
+                <ul class="small">
+                    <li><strong>新订单：</strong>客户下单时推送</li>
+                    <li><strong>订单确认：</strong>管理员确认订单时推送</li>
+                    <li><strong>订单取消：</strong>订单被取消时推送</li>
+                    <li><strong>订单退款：</strong>客户申请退款时推送</li>
+                </ul>
+                
+                <hr>
+                
+                <h6><i class="fas fa-question-circle text-secondary"></i> 常见问题</h6>
+                <div class="accordion accordion-flush" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faq1">
+                            <button class="accordion-button collapsed small" type="button" data-bs-toggle="collapse" data-bs-target="#collapse1">
+                                收不到推送怎么办？
+                            </button>
+                        </h2>
+                        <div id="collapse1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body small">
+                                <ol>
+                                    <li>检查PushKey是否正确</li>
+                                    <li>确认设备已注册</li>
+                                    <li>检查网络连接</li>
+                                    <li>使用测试功能验证配置</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function testPushKey() {
+    const pushkey = document.getElementById('pushkey').value;
+    const endpoint = document.getElementById('endpoint').value;
+    const resultDiv = document.getElementById('testResult');
+    
+    if (!pushkey) {
+        resultDiv.innerHTML = '<div class="alert alert-warning alert-sm">请先输入PushKey</div>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<div class="alert alert-info alert-sm"><i class="fas fa-spinner fa-spin"></i> 正在测试...</div>';
+    
+    fetch('/admin/pushdeer/test_key', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `pushkey=${encodeURIComponent(pushkey)}&endpoint=${encodeURIComponent(endpoint)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = '<div class="alert alert-success alert-sm"><i class="fas fa-check"></i> 测试成功！请检查您的设备是否收到消息。</div>';
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger alert-sm"><i class="fas fa-times"></i> 测试失败：${data.error}</div>`;
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = '<div class="alert alert-danger alert-sm"><i class="fas fa-times"></i> 测试失败：网络错误</div>';
+    });
+}
+</script>
+{% endblock %}

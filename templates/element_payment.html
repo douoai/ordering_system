@@ -1,0 +1,337 @@
+{% extends "element_base.html" %}
+
+{% block title %}支付订单 - 发财小狗饮品店{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-credit-card"></i>
+        订单支付
+    </h1>
+    <p class="page-description">请选择支付方式完成付款</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<el-row :gutter="20" justify="center">
+    <el-col :lg="16" :md="20" :sm="24">
+        <el-card>
+            <!-- 订单信息 -->
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-receipt"></i> 订单详情
+                </span>
+            </div>
+            
+            <el-row :gutter="20" class="order-info">
+                <el-col :span="12">
+                    <el-descriptions :column="1" border>
+                        <el-descriptions-item label="订单号">{{ order.id }}</el-descriptions-item>
+                        <el-descriptions-item label="商品名称">{{ order.product_name }}</el-descriptions-item>
+                        <el-descriptions-item label="规格">{{ order.size }}</el-descriptions-item>
+                    </el-descriptions>
+                </el-col>
+                <el-col :span="12">
+                    <el-descriptions :column="1" border>
+                        <el-descriptions-item label="数量">{{ order.quantity }}</el-descriptions-item>
+                        <el-descriptions-item label="总金额">
+                            <span style="color: #F56C6C; font-size: 18px; font-weight: bold;">
+                                ¥{{ "%.2f"|format(order.total_amount) }}
+                            </span>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="下单时间">{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</el-descriptions-item>
+                    </el-descriptions>
+                </el-col>
+            </el-row>
+        </el-card>
+
+        <!-- 支付方式选择 -->
+        <el-card style="margin-top: 20px;">
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-mobile-alt"></i> 选择支付方式
+                </span>
+            </div>
+
+            <div class="payment-content">
+                <el-row justify="center">
+                    <el-col :span="24" class="text-center">
+                        <h3 style="color: #07C160; margin-bottom: 20px;">
+                            <i class="fab fa-weixin"></i> 微信扫码支付
+                        </h3>
+                    </el-col>
+                </el-row>
+
+                <el-row justify="center">
+                    <el-col :span="12" class="text-center">
+                        <div class="qr-code-container">
+                            <img src="{{ url_for('static', filename='images/wechat_qr.jpg') }}"
+                                 alt="微信支付二维码"
+                                 class="qr-code-image"
+                                 @error="handleImageError"
+                                 onerror="this.src='{{ url_for('static', filename='images/placeholder_qr.svg') }}'">
+                        </div>
+                    </el-col>
+                </el-row>
+
+                <el-row justify="center" style="margin-top: 20px;">
+                    <el-col :span="16">
+                        <el-alert
+                            title="支付步骤"
+                            type="success"
+                            :closable="false">
+                            <div>
+                                <p>1. 打开微信APP</p>
+                                <p>2. 点击右上角"+"</p>
+                                <p>3. 选择"扫一扫"</p>
+                                <p>4. 扫描上方二维码</p>
+                                <p>5. 确认支付金额：<strong style="color: #F56C6C;">¥{{ "%.2f"|format(order.total_amount) }}</strong></p>
+                                <p>6. 完成支付</p>
+                                <hr style="margin: 15px 0;">
+                                <p style="margin: 0;">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>或者长按二维码图片选择"识别图中二维码"</strong>
+                                </p>
+                            </div>
+                        </el-alert>
+                    </el-col>
+                </el-row>
+            </div>
+        </el-card>
+
+        <!-- 支付操作 -->
+        <el-card style="margin-top: 20px;">
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-check-circle"></i> 支付确认
+                </span>
+            </div>
+
+            <el-alert
+                title="支付完成后，请点击下方按钮确认支付状态"
+                type="info"
+                :closable="false"
+                style="margin-bottom: 20px;">
+            </el-alert>
+
+            <el-row :gutter="20">
+                <el-col :span="8">
+                    <el-button type="success" size="large" @click="confirmPayment" style="width: 100%;">
+                        <i class="fas fa-check-circle"></i> 我已完成支付
+                    </el-button>
+                </el-col>
+                <el-col :span="8">
+                    <el-button type="primary" size="large" @click="checkPaymentStatus" :loading="checking" style="width: 100%;">
+                        <i class="fas fa-sync-alt"></i> 检查支付状态
+                    </el-button>
+                </el-col>
+                <el-col :span="8">
+                    <el-button type="info" size="large" @click="viewOrderDetail" style="width: 100%;">
+                        <i class="fas fa-eye"></i> 查看订单详情
+                    </el-button>
+                </el-col>
+            </el-row>
+
+            <!-- 支付倒计时 -->
+            <div class="payment-timer">
+                <el-alert
+                    :title="`请在 ${countdownDisplay} 内完成支付`"
+                    type="warning"
+                    :closable="false"
+                    style="margin-top: 20px;">
+                    <template slot="title">
+                        <i class="fas fa-clock"></i> 请在 <strong>{{ countdownDisplay }}</strong> 内完成支付
+                    </template>
+                </el-alert>
+            </div>
+        </el-card>
+    </el-col>
+</el-row>
+
+<!-- 支付确认对话框 -->
+<el-dialog
+    title="确认支付"
+    :visible.sync="paymentConfirmVisible"
+    width="500px"
+    :before-close="handleConfirmClose">
+    <div>
+        <p>请确认您已经完成了支付：</p>
+        <el-descriptions :column="1" border>
+            <el-descriptions-item label="支付金额">
+                <span style="color: #F56C6C; font-weight: bold;">¥{{ "%.2f"|format(order.total_amount) }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="订单号">{{ order.id }}</el-descriptions-item>
+        </el-descriptions>
+        <el-alert
+            title="请确保支付成功后再点击确认，虚假确认可能导致订单被取消。"
+            type="warning"
+            :closable="false"
+            style="margin-top: 15px;">
+        </el-alert>
+    </div>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="paymentConfirmVisible = false">取消</el-button>
+        <el-button type="success" @click="submitPaymentConfirmation" :loading="confirming">
+            确认已支付
+        </el-button>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.qr-code-container {
+    background: #f5f7fa;
+    border: 2px dashed #dcdfe6;
+    border-radius: 12px;
+    padding: 30px;
+    margin: 0 auto;
+    max-width: 300px;
+}
+
+.qr-code-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.payment-content {
+    padding: 20px 0;
+}
+
+.order-info {
+    margin-bottom: 20px;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.payment-timer {
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .qr-code-container {
+        max-width: 250px;
+        padding: 20px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+paymentConfirmVisible: false,
+checking: false,
+confirming: false,
+timeLeft: 15 * 60, // 15分钟
+countdownDisplay: '15:00'
+{% endblock %}
+
+{% block vue_methods %}
+handleImageError(event) {
+    event.target.src = '{{ url_for("static", filename="images/placeholder_qr.svg") }}';
+    this.$message.warning('二维码图片加载失败，显示占位符');
+},
+
+confirmPayment() {
+    this.paymentConfirmVisible = true;
+},
+
+handleConfirmClose() {
+    this.paymentConfirmVisible = false;
+},
+
+submitPaymentConfirmation() {
+    this.confirming = true;
+    
+    fetch('{{ url_for("main.confirm_payment", order_id=order.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            'confirmed': true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success('支付确认成功！订单已提交处理。');
+            setTimeout(() => {
+                window.location.href = '{{ url_for("main.order_detail", order_id=order.id) }}';
+            }, 1500);
+        } else {
+            this.$message.error('确认失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.confirming = false;
+        this.paymentConfirmVisible = false;
+    });
+},
+
+checkPaymentStatus() {
+    this.checking = true;
+    
+    fetch('{{ url_for("main.check_payment_status", order_id=order.id) }}')
+    .then(response => response.json())
+    .then(data => {
+        if (data.paid) {
+            this.$message.success('检测到支付成功！');
+            setTimeout(() => {
+                window.location.href = '{{ url_for("main.order_detail", order_id=order.id) }}';
+            }, 1500);
+        } else {
+            this.$message.warning('暂未检测到支付，请确认支付后重试');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        this.$message.error('检查失败，请重试');
+    })
+    .finally(() => {
+        this.checking = false;
+    });
+},
+
+viewOrderDetail() {
+    window.location.href = '{{ url_for("main.order_detail", order_id=order.id) }}';
+},
+
+updateCountdown() {
+    const minutes = Math.floor(this.timeLeft / 60);
+    const seconds = this.timeLeft % 60;
+    this.countdownDisplay = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    if (this.timeLeft <= 0) {
+        this.$alert('支付时间已过期，请重新下单', '支付超时', {
+            confirmButtonText: '确定',
+            callback: () => {
+                window.location.href = '{{ url_for("main.index") }}';
+            }
+        });
+        return;
+    }
+    
+    this.timeLeft--;
+}
+{% endblock %}
+
+{% block vue_mounted %}
+// 启动倒计时
+setInterval(() => {
+    this.updateCountdown();
+}, 1000);
+
+// 显示支付提示
+this.$alert('请选择支付方式完成付款。支付完成后请点击"我已完成支付"按钮。', '支付提示', {
+    confirmButtonText: '我知道了',
+    type: 'info'
+});
+{% endblock %}

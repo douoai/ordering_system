@@ -1,0 +1,198 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-plus"></i> 添加公告
+    </h1>
+    <div>
+        <a href="{{ url_for('admin.announcements') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 返回列表
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-edit"></i> 公告信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">公告标题 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="title" name="title" required
+                               placeholder="请输入公告标题">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">公告内容 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="content" name="content" rows="6" required
+                                  placeholder="请输入公告内容"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="announcement_type" class="form-label">公告类型</label>
+                                <select class="form-select" id="announcement_type" name="announcement_type">
+                                    <option value="info">信息</option>
+                                    <option value="success">成功</option>
+                                    <option value="warning">警告</option>
+                                    <option value="danger">重要</option>
+                                    <option value="primary">主要</option>
+                                    <option value="secondary">次要</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="priority" class="form-label">优先级</label>
+                                <input type="number" class="form-control" id="priority" name="priority" 
+                                       value="0" min="0" max="100">
+                                <div class="form-text">数字越大优先级越高，0-100</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="start_time" class="form-label">开始时间</label>
+                                <input type="datetime-local" class="form-control" id="start_time" name="start_time">
+                                <div class="form-text">留空表示立即生效</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="end_time" class="form-label">结束时间</label>
+                                <input type="datetime-local" class="form-control" id="end_time" name="end_time">
+                                <div class="form-text">留空表示永不过期</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                            <label class="form-check-label" for="is_active">
+                                启用公告
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="show_on_homepage" name="show_on_homepage" checked>
+                            <label class="form-check-label" for="show_on_homepage">
+                                在首页显示
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin.announcements') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> 取消
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> 保存公告
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle"></i> 使用说明
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6>公告类型说明：</h6>
+                <ul class="list-unstyled">
+                    <li><span class="badge bg-info">信息</span> - 一般信息通知</li>
+                    <li><span class="badge bg-success">成功</span> - 积极正面消息</li>
+                    <li><span class="badge bg-warning">警告</span> - 需要注意的信息</li>
+                    <li><span class="badge bg-danger">重要</span> - 重要紧急信息</li>
+                    <li><span class="badge bg-primary">主要</span> - 主要公告</li>
+                    <li><span class="badge bg-secondary">次要</span> - 次要信息</li>
+                </ul>
+                
+                <hr>
+                
+                <h6>优先级说明：</h6>
+                <p class="small text-muted">
+                    优先级决定公告的显示顺序，数字越大越靠前显示。
+                    建议：重要公告设置为80-100，一般公告设置为0-50。
+                </p>
+                
+                <hr>
+                
+                <h6>时间设置：</h6>
+                <p class="small text-muted">
+                    开始时间：公告开始显示的时间<br>
+                    结束时间：公告停止显示的时间<br>
+                    两者都可以留空，表示立即生效且永不过期。
+                </p>
+                
+                <hr>
+                
+                <h6>显示设置：</h6>
+                <p class="small text-muted">
+                    启用公告：控制公告是否生效<br>
+                    首页显示：控制是否在网站首页显示此公告
+                </p>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-eye"></i> 预览效果
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="preview-area">
+                    <div class="alert alert-info" role="alert">
+                        <h6 class="alert-heading">公告标题</h6>
+                        <p class="mb-0">公告内容将在这里显示...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 实时预览功能
+document.addEventListener('DOMContentLoaded', function() {
+    const titleInput = document.getElementById('title');
+    const contentInput = document.getElementById('content');
+    const typeSelect = document.getElementById('announcement_type');
+    const previewArea = document.getElementById('preview-area');
+    
+    function updatePreview() {
+        const title = titleInput.value || '公告标题';
+        const content = contentInput.value || '公告内容将在这里显示...';
+        const type = typeSelect.value;
+        
+        previewArea.innerHTML = `
+            <div class="alert alert-${type}" role="alert">
+                <h6 class="alert-heading">${title}</h6>
+                <p class="mb-0">${content}</p>
+            </div>
+        `;
+    }
+    
+    titleInput.addEventListener('input', updatePreview);
+    contentInput.addEventListener('input', updatePreview);
+    typeSelect.addEventListener('change', updatePreview);
+});
+</script>
+{% endblock %}

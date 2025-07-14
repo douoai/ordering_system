@@ -1,0 +1,247 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-bullhorn"></i> 首页公告管理
+    </h1>
+    <div>
+        <a href="{{ url_for('admin.add_announcement') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> 添加公告
+        </a>
+    </div>
+</div>
+
+<!-- 搜索框 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-lg-8 col-md-10">
+                <form method="GET">
+                    <!-- 保持筛选条件 -->
+                    {% if type_filter %}
+                    <input type="hidden" name="type" value="{{ type_filter }}">
+                    {% endif %}
+                    {% if status_filter %}
+                    <input type="hidden" name="status" value="{{ status_filter }}">
+                    {% endif %}
+                    
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-search text-muted"></i>
+                        </span>
+                        <input type="text" class="form-control" name="search" 
+                               value="{{ search }}" 
+                               placeholder="搜索公告标题或内容..."
+                               autocomplete="off">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> 搜索
+                        </button>
+                        {% if search %}
+                        <a href="{{ url_for('admin.announcements', type=type_filter, status=status_filter) }}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> 清除
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% if search %}
+                    <div class="form-text mt-2">
+                        <i class="fas fa-info-circle"></i> 
+                        搜索条件: "{{ search }}" - 找到 {{ announcements.items|length if announcements.items else 0 }} 个结果
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+            <div class="col-lg-4 col-md-2 d-flex align-items-start justify-content-end">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-info btn-sm dropdown-toggle" 
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-filter"></i> 快速筛选
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><h6 class="dropdown-header">按类型筛选</h6></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.announcements', type='info', search=search) }}">
+                            <i class="fas fa-info-circle text-info"></i> 信息公告
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.announcements', type='warning', search=search) }}">
+                            <i class="fas fa-exclamation-triangle text-warning"></i> 警告公告
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.announcements', type='success', search=search) }}">
+                            <i class="fas fa-check-circle text-success"></i> 成功公告
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.announcements', type='danger', search=search) }}">
+                            <i class="fas fa-exclamation-circle text-danger"></i> 重要公告
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header">按状态筛选</h6></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.announcements', status='active', search=search) }}">
+                            <i class="fas fa-check-circle text-success"></i> 启用的公告
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.announcements', status='inactive', search=search) }}">
+                            <i class="fas fa-times-circle text-danger"></i> 禁用的公告
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.announcements') }}">
+                            <i class="fas fa-list"></i> 显示全部公告
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if announcements.items %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>标题</th>
+                            <th>类型</th>
+                            <th>优先级</th>
+                            <th>状态</th>
+                            <th>首页显示</th>
+                            <th>有效期</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for announcement in announcements.items %}
+                        <tr>
+                            <td>{{ announcement.id }}</td>
+                            <td>
+                                <div class="fw-bold">{{ announcement.title }}</div>
+                                <div class="text-muted small">
+                                    {{ announcement.content[:50] }}{% if announcement.content|length > 50 %}...{% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ announcement.announcement_type }}">
+                                    {{ announcement.type_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ announcement.priority }}</span>
+                            </td>
+                            <td>
+                                {% if announcement.is_active %}
+                                    {% if announcement.is_valid %}
+                                        <span class="badge bg-success">正常</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">已过期</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-danger">已禁用</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if announcement.show_on_homepage %}
+                                    <i class="fas fa-check text-success"></i> 是
+                                {% else %}
+                                    <i class="fas fa-times text-danger"></i> 否
+                                {% endif %}
+                            </td>
+                            <td class="small">
+                                {% if announcement.start_time %}
+                                    <div>开始: {{ announcement.start_time.strftime('%m-%d %H:%M') }}</div>
+                                {% endif %}
+                                {% if announcement.end_time %}
+                                    <div>结束: {{ announcement.end_time.strftime('%m-%d %H:%M') }}</div>
+                                {% endif %}
+                                {% if not announcement.start_time and not announcement.end_time %}
+                                    <span class="text-muted">永久有效</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">{{ announcement.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('admin.edit_announcement', announcement_id=announcement.id) }}" 
+                                       class="btn btn-outline-primary" title="编辑">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.toggle_announcement', announcement_id=announcement.id) }}" 
+                                       class="btn btn-outline-{{ 'warning' if announcement.is_active else 'success' }}"
+                                       title="{{ '禁用' if announcement.is_active else '启用' }}"
+                                       onclick="return confirm('确认{{ '禁用' if announcement.is_active else '启用' }}此公告？')">
+                                        <i class="fas fa-{{ 'pause' if announcement.is_active else 'play' }}"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.delete_announcement', announcement_id=announcement.id) }}" 
+                                       class="btn btn-outline-danger" title="删除"
+                                       onclick="return confirm('确认删除此公告？此操作不可恢复！')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页 -->
+            {% if announcements.pages > 1 %}
+            <nav aria-label="公告分页">
+                <ul class="pagination justify-content-center">
+                    {% if announcements.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.announcements', page=announcements.prev_num, search=search, type=type_filter, status=status_filter) }}">上一页</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in announcements.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != announcements.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.announcements', page=page_num, search=search, type=type_filter, status=status_filter) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if announcements.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.announcements', page=announcements.next_num, search=search, type=type_filter, status=status_filter) }}">下一页</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-bullhorn fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">
+                    {% if search %}
+                        未找到匹配的公告
+                    {% else %}
+                        暂无公告
+                    {% endif %}
+                </h4>
+                <p class="text-muted">
+                    {% if search %}
+                        请尝试其他搜索条件
+                    {% else %}
+                        点击上方按钮添加第一个公告
+                    {% endif %}
+                </p>
+                {% if not search %}
+                <a href="{{ url_for('admin.add_announcement') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> 添加公告
+                </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

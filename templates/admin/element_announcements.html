@@ -1,0 +1,316 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}首页公告管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}announcements{% endblock %}
+
+{% block page_icon %}<i class="fas fa-bullhorn"></i>{% endblock %}
+{% block page_title %}首页公告管理{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="addAnnouncement">
+    添加公告
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 搜索表单 -->
+<div class="search-form">
+    <el-form :inline="true" :model="searchForm" class="search-form-content">
+        <el-form-item label="搜索内容">
+            <el-input
+                v-model="searchForm.search"
+                placeholder="搜索公告标题或内容..."
+                style="width: 250px;"
+                clearable>
+                <i slot="prefix" class="el-input__icon el-icon-search"></i>
+            </el-input>
+        </el-form-item>
+        
+        <el-form-item label="公告类型">
+            <el-select v-model="searchForm.type" placeholder="全部类型" clearable style="width: 150px;">
+                <el-option label="信息" value="info"></el-option>
+                <el-option label="成功" value="success"></el-option>
+                <el-option label="警告" value="warning"></el-option>
+                <el-option label="重要" value="danger"></el-option>
+                <el-option label="主要" value="primary"></el-option>
+                <el-option label="次要" value="secondary"></el-option>
+            </el-select>
+        </el-form-item>
+        
+        <el-form-item label="状态">
+            <el-select v-model="searchForm.status" placeholder="全部状态" clearable style="width: 120px;">
+                <el-option label="启用" value="active"></el-option>
+                <el-option label="禁用" value="inactive"></el-option>
+            </el-select>
+        </el-form-item>
+        
+        <el-form-item>
+            <el-button type="primary" icon="el-icon-search" @click="handleSearch">搜索</el-button>
+            <el-button icon="el-icon-refresh" @click="handleReset">重置</el-button>
+        </el-form-item>
+    </el-form>
+</div>
+
+<!-- 统计卡片 -->
+<el-row :gutter="20" class="stats-row">
+    <el-col :xs="12" :sm="6">
+        <div class="stat-card stat-primary">
+            <div class="stat-number">{{ announcements.total if announcements.items else 0 }}</div>
+            <div class="stat-label">总公告数</div>
+        </div>
+    </el-col>
+    <el-col :xs="12" :sm="6">
+        <div class="stat-card stat-success">
+            <div class="stat-number">{{ active_count }}</div>
+            <div class="stat-label">启用中</div>
+        </div>
+    </el-col>
+    <el-col :xs="12" :sm="6">
+        <div class="stat-card stat-warning">
+            <div class="stat-number">{{ homepage_count }}</div>
+            <div class="stat-label">首页显示</div>
+        </div>
+    </el-col>
+    <el-col :xs="12" :sm="6">
+        <div class="stat-card stat-danger">
+            <div class="stat-number">{{ expired_count }}</div>
+            <div class="stat-label">已过期</div>
+        </div>
+    </el-col>
+</el-row>
+
+<!-- 公告列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">公告列表</span>
+        <el-button style="float: right; padding: 3px 0" type="text" @click="refreshList">
+            <i class="el-icon-refresh"></i> 刷新
+        </el-button>
+    </div>
+    
+    {% if announcements.items %}
+    <el-table
+        :data="tableData"
+        style="width: 100%"
+        :default-sort="{prop: 'priority', order: 'descending'}"
+        v-loading="loading">
+        
+        <el-table-column prop="id" label="ID" width="80" sortable></el-table-column>
+        
+        <el-table-column prop="title" label="标题" min-width="200">
+            <template slot-scope="scope">
+                <div style="font-weight: 600; margin-bottom: 4px;">{{ "{{ scope.row.title }}" }}</div>
+                <div style="color: #909399; font-size: 12px; line-height: 1.4;">
+                    {{ "{{ scope.row.content.length > 50 ? scope.row.content.substring(0, 50) + '...' : scope.row.content }}" }}
+                </div>
+            </template>
+        </el-table-column>
+        
+        <el-table-column prop="type" label="类型" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="getTagType(scope.row.announcement_type)" size="small">
+                    {{ "{{ getTypeDisplay(scope.row.announcement_type) }}" }}
+                </el-tag>
+            </template>
+        </el-table-column>
+        
+        <el-table-column prop="priority" label="优先级" width="100" sortable>
+            <template slot-scope="scope">
+                <el-tag type="info" size="small">{{ "{{ scope.row.priority }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        
+        <el-table-column prop="status" label="状态" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_active ? (scope.row.is_valid ? 'success' : 'warning') : 'danger'" size="small">
+                    {{ "{{ getStatusDisplay(scope.row) }}" }}
+                </el-tag>
+            </template>
+        </el-table-column>
+        
+        <el-table-column prop="show_on_homepage" label="首页显示" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.show_on_homepage ? 'success' : 'info'" size="small">
+                    {{ "{{ scope.row.show_on_homepage ? '是' : '否' }}" }}
+                </el-tag>
+            </template>
+        </el-table-column>
+        
+        <el-table-column prop="created_at" label="创建时间" width="150">
+            <template slot-scope="scope">
+                <div style="font-size: 12px;">
+                    <div>{{ "{{ formatDate(scope.row.created_at) }}" }}</div>
+                    <div style="color: #909399;">{{ "{{ formatTime(scope.row.created_at) }}" }}</div>
+                </div>
+            </template>
+        </el-table-column>
+        
+        <el-table-column label="操作" width="180" fixed="right">
+            <template slot-scope="scope">
+                <el-button-group>
+                    <el-button type="primary" icon="el-icon-edit" size="mini" @click="editAnnouncement(scope.row.id)">
+                        编辑
+                    </el-button>
+                    <el-button 
+                        :type="scope.row.is_active ? 'warning' : 'success'" 
+                        :icon="scope.row.is_active ? 'el-icon-video-pause' : 'el-icon-video-play'"
+                        size="mini" 
+                        @click="toggleAnnouncement(scope.row)">
+                        {{ "{{ scope.row.is_active ? '禁用' : '启用' }}" }}
+                    </el-button>
+                    <el-button type="danger" icon="el-icon-delete" size="mini" @click="deleteAnnouncement(scope.row)">
+                        删除
+                    </el-button>
+                </el-button-group>
+            </template>
+        </el-table-column>
+    </el-table>
+    
+    <!-- 分页 -->
+    {% if announcements.pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        <el-pagination
+            @current-change="handlePageChange"
+            :current-page="currentPage"
+            :page-size="10"
+            layout="total, prev, pager, next, jumper"
+            :total="totalCount">
+        </el-pagination>
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <el-empty description="暂无公告数据">
+        <el-button type="primary" @click="addAnnouncement">添加第一个公告</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+{% endblock %}
+
+{% block vue_data %}
+loading: false,
+searchForm: {
+    search: '{{ search or "" }}',
+    type: '{{ type_filter or "" }}',
+    status: '{{ status_filter or "" }}'
+},
+currentPage: {{ announcements.page if announcements.items else 1 }},
+totalCount: {{ announcements.total if announcements.items else 0 }},
+tableData: [
+    {% if announcements.items %}
+    {% for announcement in announcements.items %}
+    {
+        id: {{ announcement.id }},
+        title: '{{ announcement.title }}',
+        content: '{{ announcement.content }}',
+        announcement_type: '{{ announcement.announcement_type }}',
+        priority: {{ announcement.priority }},
+        is_active: {{ announcement.is_active|lower }},
+        is_valid: {{ announcement.is_valid|lower }},
+        show_on_homepage: {{ announcement.show_on_homepage|lower }},
+        created_at: '{{ announcement.created_at.isoformat() }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+handleSearch() {
+    const params = new URLSearchParams();
+    if (this.searchForm.search) params.append('search', this.searchForm.search);
+    if (this.searchForm.type) params.append('type', this.searchForm.type);
+    if (this.searchForm.status) params.append('status', this.searchForm.status);
+    
+    window.location.href = `{{ url_for('admin.announcements') }}?${params.toString()}`;
+},
+
+handleReset() {
+    this.searchForm = {
+        search: '',
+        type: '',
+        status: ''
+    };
+    window.location.href = '{{ url_for('admin.announcements') }}';
+},
+
+handlePageChange(page) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', page);
+    window.location.href = `{{ url_for('admin.announcements') }}?${params.toString()}`;
+},
+
+addAnnouncement() {
+    window.location.href = '{{ url_for('admin.add_announcement') }}';
+},
+
+editAnnouncement(id) {
+    window.location.href = `/admin/announcements/edit/${id}`;
+},
+
+toggleAnnouncement(row) {
+    const action = row.is_active ? '禁用' : '启用';
+    this.$confirm(`确认${action}此公告？`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        window.location.href = `/admin/announcements/toggle/${row.id}`;
+    });
+},
+
+deleteAnnouncement(row) {
+    this.$confirm('确认删除此公告？此操作不可恢复！', '警告', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'error'
+    }).then(() => {
+        window.location.href = `/admin/announcements/delete/${row.id}`;
+    });
+},
+
+refreshList() {
+    window.location.reload();
+},
+
+getTagType(type) {
+    const typeMap = {
+        'info': '',
+        'success': 'success',
+        'warning': 'warning',
+        'danger': 'danger',
+        'primary': 'primary',
+        'secondary': 'info'
+    };
+    return typeMap[type] || '';
+},
+
+getTypeDisplay(type) {
+    const typeMap = {
+        'info': '信息',
+        'success': '成功',
+        'warning': '警告',
+        'danger': '重要',
+        'primary': '主要',
+        'secondary': '次要'
+    };
+    return typeMap[type] || type;
+},
+
+getStatusDisplay(row) {
+    if (!row.is_active) return '已禁用';
+    if (!row.is_valid) return '已过期';
+    return '正常';
+},
+
+formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('zh-CN');
+},
+
+formatTime(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('zh-CN', { hour12: false });
+}
+{% endblock %}
+{% endblock %}

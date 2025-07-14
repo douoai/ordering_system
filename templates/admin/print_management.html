@@ -1,0 +1,394 @@
+{% extends "admin/base.html" %}
+
+{% block title %}打印管理 - 发财小狗饮品店{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-print"></i> 打印管理</h2>
+    <div>
+        <a href="{{ url_for('admin.print_daily_summary') }}" class="btn btn-primary" target="_blank">
+            <i class="fas fa-chart-line"></i> 打印日报表
+        </a>
+    </div>
+</div>
+
+<!-- 快速统计 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ today_orders|length }}</h4>
+                        <p class="mb-0">今日订单</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-calendar-day fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ pending_orders|length }}</h4>
+                        <p class="mb-0">待确认订单</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ confirmed_orders|length }}</h4>
+                        <p class="mb-0">已确认订单</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>¥{{ "%.2f"|format(today_orders|sum(attribute='total_amount')) }}</h4>
+                        <p class="mb-0">今日营业额</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-money-bill-wave fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 打印选项 -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-alt"></i> 今日订单打印
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if today_orders %}
+                <div class="mb-3">
+                    <button type="button" class="btn btn-primary" onclick="selectAllToday()">
+                        <i class="fas fa-check-square"></i> 全选今日订单
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="printSelected()">
+                        <i class="fas fa-print"></i> 批量打印订单
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="printKitchenTickets()">
+                        <i class="fas fa-eye"></i> 预览制作小票
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="directPrintKitchenTickets()">
+                        <i class="fas fa-print"></i> 直接打印制作小票
+                    </button>
+                </div>
+                
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" id="selectAllTodayCheckbox" onchange="toggleAllToday()">
+                                </th>
+                                <th>订单号</th>
+                                <th>客户</th>
+                                <th>金额</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in today_orders %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="order-checkbox" value="{{ order.id }}">
+                                </td>
+                                <td>#{{ order.id }}</td>
+                                <td>{{ order.user.username }}</td>
+                                <td>¥{{ "%.2f"|format(order.total_amount) }}</td>
+                                <td>
+                                    {% if order.status == 'pending' %}
+                                        <span class="badge bg-warning fs-6 px-3 py-2">待确认</span>
+                                    {% elif order.status == 'confirmed' %}
+                                        <span class="badge bg-success fs-6 px-3 py-2">已确认</span>
+                                    {% elif order.status == 'paid' %}
+                                        <span class="badge bg-primary fs-6 px-3 py-2">已支付</span>
+                                    {% elif order.status == 'rejected' %}
+                                        <span class="badge bg-danger fs-6 px-3 py-2">已拒绝</span>
+                                    {% elif order.status == 'completed' %}
+                                        <span class="badge bg-success fs-6 px-3 py-2">已完成</span>
+                                    {% elif order.status == 'refunded' %}
+                                        <span class="badge bg-info fs-6 px-3 py-2">已退款</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary fs-6 px-3 py-2">{{ order.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <!-- 预览打印 -->
+                                        <a href="{{ url_for('admin.print_order', order_id=order.id) }}"
+                                           class="btn btn-outline-primary" target="_blank" title="预览订单">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('admin.print_kitchen_ticket', order_id=order.id) }}"
+                                           class="btn btn-outline-warning" target="_blank" title="预览制作小票">
+                                            <i class="fas fa-utensils"></i>
+                                        </a>
+
+                                        <!-- 直接打印 -->
+                                        <a href="{{ url_for('admin.api_print_kitchen_ticket', order_id=order.id) }}"
+                                           class="btn btn-warning" title="直接打印制作小票"
+                                           onclick="return confirm('确认打印制作小票？')">
+                                            <i class="fas fa-print"></i>
+                                        </a>
+                                        <a href="{{ url_for('admin.api_print_receipt', order_id=order.id) }}"
+                                           class="btn btn-success" title="直接打印收据"
+                                           onclick="return confirm('确认打印收据？')">
+                                            <i class="fas fa-receipt"></i>
+                                        </a>
+
+                                        <a href="{{ url_for('admin.order_detail', order_id=order.id) }}"
+                                           class="btn btn-outline-info" title="查看详情">
+                                            <i class="fas fa-list"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">今日暂无订单</h5>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock"></i> 待处理订单
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if pending_orders %}
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>订单号</th>
+                                <th>客户</th>
+                                <th>金额</th>
+                                <th>下单时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in pending_orders %}
+                            <tr>
+                                <td>#{{ order.id }}</td>
+                                <td>{{ order.user.username }}</td>
+                                <td>¥{{ "%.2f"|format(order.total_amount) }}</td>
+                                <td>{{ order.created_at.strftime('%H:%M') }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('admin.api_print_kitchen_ticket', order_id=order.id) }}"
+                                           class="btn btn-warning" title="直接打印制作小票"
+                                           onclick="return confirm('确认打印制作小票？')">
+                                            <i class="fas fa-print"></i>
+                                        </a>
+                                        <a href="{{ url_for('admin.print_kitchen_ticket', order_id=order.id) }}"
+                                           class="btn btn-outline-warning" target="_blank" title="预览制作小票">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('admin.order_detail', order_id=order.id) }}"
+                                           class="btn btn-outline-info" title="查看详情">
+                                            <i class="fas fa-list"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    <h5 class="text-muted">暂无待处理订单</h5>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 快速打印选项 -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-bolt"></i> 快速打印
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin.print_daily_summary') }}" 
+                       class="btn btn-outline-primary" target="_blank">
+                        <i class="fas fa-chart-bar"></i> 今日营业报表
+                    </a>
+                    {% if pending_orders %}
+                    <button type="button" class="btn btn-outline-warning" onclick="printAllPending()">
+                        <i class="fas fa-clock"></i> 打印所有待确认订单
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" onclick="printAllPendingKitchen()">
+                        <i class="fas fa-utensils"></i> 制作小票(待确认)
+                    </button>
+                    {% endif %}
+                    {% if confirmed_orders %}
+                    <button type="button" class="btn btn-outline-success" onclick="printAllConfirmed()">
+                        <i class="fas fa-check"></i> 打印所有已确认订单
+                    </button>
+                    <button type="button" class="btn btn-outline-success" onclick="printAllConfirmedKitchen()">
+                        <i class="fas fa-utensils"></i> 制作小票(已确认)
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 全选今日订单
+function selectAllToday() {
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    checkboxes.forEach(cb => cb.checked = true);
+    document.getElementById('selectAllTodayCheckbox').checked = true;
+}
+
+// 切换全选状态
+function toggleAllToday() {
+    const selectAll = document.getElementById('selectAllTodayCheckbox');
+    const checkboxes = document.querySelectorAll('.order-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+}
+
+// 打印选中的订单
+function printSelected() {
+    const selected = Array.from(document.querySelectorAll('.order-checkbox:checked'))
+                          .map(cb => cb.value);
+
+    if (selected.length === 0) {
+        alert('请选择要打印的订单');
+        return;
+    }
+
+    const url = `{{ url_for('admin.print_batch_orders') }}?order_ids=${selected.join(',')}`;
+    window.open(url, '_blank');
+}
+
+// 预览选中订单的制作小票
+function printKitchenTickets() {
+    const selected = Array.from(document.querySelectorAll('.order-checkbox:checked'))
+                          .map(cb => cb.value);
+
+    if (selected.length === 0) {
+        alert('请选择要预览制作小票的订单');
+        return;
+    }
+
+    const url = `{{ url_for('admin.print_batch_kitchen_tickets') }}?order_ids=${selected.join(',')}`;
+    window.open(url, '_blank');
+}
+
+// 直接打印选中订单的制作小票
+function directPrintKitchenTickets() {
+    const selected = Array.from(document.querySelectorAll('.order-checkbox:checked'))
+                          .map(cb => cb.value);
+
+    if (selected.length === 0) {
+        alert('请选择要打印制作小票的订单');
+        return;
+    }
+
+    if (!confirm(`确认直接打印 ${selected.length} 个订单的制作小票？`)) {
+        return;
+    }
+
+    const url = `{{ url_for('admin.api_batch_print_kitchen_tickets') }}?order_ids=${selected.join(',')}`;
+    window.location.href = url;
+}
+
+// 打印所有待确认订单
+function printAllPending() {
+    const pendingIds = [{% for order in pending_orders %}{{ order.id }}{% if not loop.last %},{% endif %}{% endfor %}];
+    if (pendingIds.length === 0) {
+        alert('没有待确认订单');
+        return;
+    }
+    
+    const url = `{{ url_for('admin.print_batch_orders') }}?order_ids=${pendingIds.join(',')}`;
+    window.open(url, '_blank');
+}
+
+// 打印所有已确认订单
+function printAllConfirmed() {
+    const confirmedIds = [{% for order in confirmed_orders %}{{ order.id }}{% if not loop.last %},{% endif %}{% endfor %}];
+    if (confirmedIds.length === 0) {
+        alert('没有已确认订单');
+        return;
+    }
+
+    const url = `{{ url_for('admin.print_batch_orders') }}?order_ids=${confirmedIds.join(',')}`;
+    window.open(url, '_blank');
+}
+
+// 打印所有待确认订单的制作小票
+function printAllPendingKitchen() {
+    const pendingIds = [{% for order in pending_orders %}{{ order.id }}{% if not loop.last %},{% endif %}{% endfor %}];
+    if (pendingIds.length === 0) {
+        alert('没有待确认订单');
+        return;
+    }
+
+    const url = `{{ url_for('admin.print_batch_kitchen_tickets') }}?order_ids=${pendingIds.join(',')}`;
+    window.open(url, '_blank');
+}
+
+// 打印所有已确认订单的制作小票
+function printAllConfirmedKitchen() {
+    const confirmedIds = [{% for order in confirmed_orders %}{{ order.id }}{% if not loop.last %},{% endif %}{% endfor %}];
+    if (confirmedIds.length === 0) {
+        alert('没有已确认订单');
+        return;
+    }
+
+    const url = `{{ url_for('admin.print_batch_kitchen_tickets') }}?order_ids=${confirmedIds.join(',')}`;
+    window.open(url, '_blank');
+}
+</script>
+{% endblock %}

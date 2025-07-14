@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日报表 {{ today.strftime('%Y-%m-%d') }} - 发财小狗饮品店</title>
+    <style>
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+            .page-break { page-break-after: always; }
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            margin: 20px;
+            color: #333;
+        }
+        
+        .print-header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .store-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .report-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .summary-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        
+        .summary-card h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 16px;
+        }
+        
+        .summary-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        
+        .data-table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .data-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .section {
+            margin: 30px 0;
+            page-break-inside: avoid;
+        }
+        
+        .section h3 {
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .no-print {
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 0 5px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .print-footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px dotted #ccc;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 打印控制按钮 -->
+    <div class="no-print">
+        <button onclick="window.print()" class="btn">
+            <i class="fas fa-print"></i> 打印报表
+        </button>
+        <button onclick="window.close()" class="btn btn-secondary">
+            <i class="fas fa-times"></i> 关闭
+        </button>
+    </div>
+    
+    <!-- 打印内容 -->
+    <div class="print-content">
+        <!-- 报表头部 -->
+        <div class="print-header">
+            <div class="store-name">🐕 发财小狗饮品店 ☕</div>
+            <div class="report-title">日营业报表</div>
+            <div>{{ today.strftime('%Y年%m月%d日') }}</div>
+        </div>
+        
+        <!-- 营业概况 -->
+        <div class="section">
+            <h3>📊 营业概况</h3>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h4>订单总数</h4>
+                    <div class="summary-value">{{ total_orders }}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>营业额</h4>
+                    <div class="summary-value">¥{{ "%.2f"|format(total_amount) }}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>待确认订单</h4>
+                    <div class="summary-value">{{ pending_count }}</div>
+                </div>
+                <div class="summary-card">
+                    <h4>已确认订单</h4>
+                    <div class="summary-value">{{ confirmed_count }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 订单状态统计 -->
+        <div class="section">
+            <h3>📈 订单状态统计</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>状态</th>
+                        <th>数量</th>
+                        <th>占比</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>待确认</td>
+                        <td>{{ pending_count }}</td>
+                        <td>{{ "%.1f"|format((pending_count / total_orders * 100) if total_orders > 0 else 0) }}%</td>
+                    </tr>
+                    <tr>
+                        <td>已确认</td>
+                        <td>{{ confirmed_count }}</td>
+                        <td>{{ "%.1f"|format((confirmed_count / total_orders * 100) if total_orders > 0 else 0) }}%</td>
+                    </tr>
+                    <tr>
+                        <td>已拒绝</td>
+                        <td>{{ rejected_count }}</td>
+                        <td>{{ "%.1f"|format((rejected_count / total_orders * 100) if total_orders > 0 else 0) }}%</td>
+                    </tr>
+                    <tr>
+                        <td>已退款</td>
+                        <td>{{ refunded_count }}</td>
+                        <td>{{ "%.1f"|format((refunded_count / total_orders * 100) if total_orders > 0 else 0) }}%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 产品销量统计 -->
+        {% if product_stats %}
+        <div class="section">
+            <h3>🥤 产品销量统计</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>产品名称</th>
+                        <th>销售数量</th>
+                        <th>销售金额</th>
+                        <th>占比</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product_name, stats in product_stats.items() %}
+                    <tr>
+                        <td>{{ product_name }}</td>
+                        <td>{{ stats.quantity }}</td>
+                        <td>¥{{ "%.2f"|format(stats.amount) }}</td>
+                        <td>{{ "%.1f"|format((stats.amount / total_amount * 100) if total_amount > 0 else 0) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background-color: #e9ecef; font-weight: bold;">
+                        <td>合计</td>
+                        <td>{{ product_stats.values()|sum(attribute='quantity') }}</td>
+                        <td>¥{{ "%.2f"|format(product_stats.values()|sum(attribute='amount')) }}</td>
+                        <td>100.0%</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
+        
+        <!-- 订单明细 -->
+        {% if today_orders %}
+        <div class="section">
+            <h3>📋 今日订单明细</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>订单号</th>
+                        <th>客户</th>
+                        <th>商品</th>
+                        <th>金额</th>
+                        <th>状态</th>
+                        <th>下单时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in today_orders %}
+                    <tr>
+                        <td>#{{ order.id }}</td>
+                        <td>{{ order.user.username }}</td>
+                        <td>
+                            {% for item in order.order_items %}
+                            {{ item.drink_product.name }} x{{ item.quantity }}
+                            {% if not loop.last %}<br>{% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>¥{{ "%.2f"|format(order.total_amount) }}</td>
+                        <td>
+                            {% if order.status == 'pending' %}待确认
+                            {% elif order.status == 'confirmed' %}已确认
+                            {% elif order.status == 'rejected' %}已拒绝
+                            {% elif order.status == 'refunded' %}已退款
+                            {% endif %}
+                        </td>
+                        <td>{{ order.created_at.strftime('%H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <!-- 打印页脚 -->
+        <div class="print-footer">
+            <p>发财小狗饮品店 - 日营业报表</p>
+            <p>报表生成时间: <span id="printTime"></span></p>
+            <p>地址: 美食街88号 | 电话: 400-888-8888</p>
+        </div>
+    </div>
+    
+    <script>
+        // 更新打印时间
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const timeString = now.getFullYear() + '-' + 
+                             String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                             String(now.getDate()).padStart(2, '0') + ' ' + 
+                             String(now.getHours()).padStart(2, '0') + ':' + 
+                             String(now.getMinutes()).padStart(2, '0') + ':' + 
+                             String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('printTime').textContent = timeString;
+        });
+    </script>
+</body>
+</html>

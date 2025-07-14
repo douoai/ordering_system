@@ -1,0 +1,273 @@
+{% extends "element_base.html" %}
+
+{% block title %}饮品产品 - 发财小狗饮品店{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-coffee"></i>
+        欢迎来到发财小狗饮品店
+    </h1>
+    <p class="page-description">精选优质饮品，为您带来美好时光</p>
+    
+    <div style="margin-top: 20px;">
+        <el-button type="primary" icon="el-icon-search" @click="showOrderSearch">
+            查询订单
+        </el-button>
+        <el-button type="success" icon="el-icon-coffee-cup" @click="scrollToProducts">
+            立即下单
+        </el-button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- 首页公告 -->
+{% if announcements %}
+<div style="margin-bottom: 20px;">
+    {% for announcement in announcements %}
+    <el-alert
+        title="{{ announcement.title }}"
+        type="{% if announcement.announcement_type == 'info' %}info{% elif announcement.announcement_type == 'success' %}success{% elif announcement.announcement_type == 'warning' %}warning{% elif announcement.announcement_type == 'danger' %}error{% else %}info{% endif %}"
+        :closable="true"
+        class="announcement-card">
+        <div class="announcement-content">{{ announcement.content }}</div>
+        {% if announcement.end_time %}
+        <div class="announcement-meta">
+            <i class="el-icon-time"></i> 
+            有效期至: {{ announcement.end_time.strftime('%Y年%m月%d日 %H:%M') }}
+        </div>
+        {% endif %}
+    </el-alert>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- 分类筛选 -->
+{% if categories %}
+<div class="search-container">
+    <div style="margin-bottom: 15px;">
+        <span style="font-weight: 600; color: #303133;">
+            <i class="fas fa-filter"></i> 产品分类
+        </span>
+    </div>
+    <el-radio-group v-model="selectedCategory" @change="filterByCategory">
+        <el-radio-button label="">全部产品</el-radio-button>
+        {% for category in categories %}
+        <el-radio-button label="{{ category.id }}">
+            <i class="{{ category.icon or 'fas fa-tag' }}"></i>
+            {{ category.name }}
+        </el-radio-button>
+        {% endfor %}
+    </el-radio-group>
+</div>
+{% endif %}
+
+<!-- 产品列表 -->
+<div id="products" class="card-container">
+    <div style="padding: 20px;">
+        <h2 style="margin: 0 0 20px 0; color: #303133;">
+            <i class="fas fa-list"></i> 产品列表
+        </h2>
+        
+        {% if drink_products %}
+        <el-row :gutter="20">
+            {% for product in drink_products %}
+            <el-col :xs="24" :sm="12" :md="8" :lg="6" style="margin-bottom: 20px;">
+                <el-card class="product-card" :body-style="{ padding: '0px' }">
+                    <div class="product-image">
+                        {% if product.image_url %}
+                        <img src="{{ product.image_url }}" alt="{{ product.name }}" style="width: 100%; height: 200px; object-fit: cover;">
+                        {% else %}
+                        <div style="width: 100%; height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 48px;">
+                            <i class="fas fa-coffee"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div style="padding: 15px;">
+                        <div class="product-name">{{ product.name }}</div>
+                        <div class="product-description">{{ product.description or '暂无描述' }}</div>
+                        
+                        <div class="product-footer">
+                            <div class="product-price">¥{{ "%.2f"|format(product.price) }}</div>
+                            <el-button type="primary" size="small" @click="orderProduct({{ product.id }})">
+                                <i class="el-icon-shopping-cart-2"></i> 下单
+                            </el-button>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+            {% endfor %}
+        </el-row>
+        {% else %}
+        <el-empty description="暂无产品">
+            <el-button type="primary">添加产品</el-button>
+        </el-empty>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 订单查询对话框 -->
+<el-dialog
+    title="查询订单"
+    :visible.sync="orderSearchVisible"
+    width="500px"
+    :before-close="handleOrderSearchClose">
+    <el-form :model="orderSearchForm" label-width="80px">
+        <el-form-item label="查询方式">
+            <el-radio-group v-model="orderSearchForm.searchType">
+                <el-radio label="phone">手机号</el-radio>
+                <el-radio label="order_id">订单号</el-radio>
+            </el-radio-group>
+        </el-form-item>
+        <el-form-item :label="orderSearchForm.searchType === 'phone' ? '手机号' : '订单号'">
+            <el-input 
+                v-model="orderSearchForm.searchValue" 
+                :placeholder="orderSearchForm.searchType === 'phone' ? '请输入手机号' : '请输入订单号'">
+            </el-input>
+        </el-form-item>
+    </el-form>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="orderSearchVisible = false">取消</el-button>
+        <el-button type="primary" @click="searchOrder">查询</el-button>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.product-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px 0 rgba(0, 0, 0, 0.15);
+}
+
+.product-image {
+    position: relative;
+    overflow: hidden;
+}
+
+.product-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.product-description {
+    font-size: 14px;
+    color: #606266;
+    margin-bottom: 12px;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.product-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.product-price {
+    font-size: 18px;
+    font-weight: bold;
+    color: #F56C6C;
+}
+
+.announcement-card {
+    margin-bottom: 16px;
+    border-radius: 8px;
+}
+
+.announcement-content {
+    margin-top: 8px;
+    line-height: 1.6;
+}
+
+.announcement-meta {
+    margin-top: 8px;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+    .product-card {
+        margin-bottom: 15px;
+    }
+    
+    .product-name {
+        font-size: 15px;
+    }
+    
+    .product-price {
+        font-size: 16px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+selectedCategory: '{{ current_category or "" }}',
+orderSearchVisible: false,
+orderSearchForm: {
+    searchType: 'phone',
+    searchValue: ''
+}
+{% endblock %}
+
+{% block vue_methods %}
+filterByCategory() {
+    const url = new URL(window.location);
+    if (this.selectedCategory) {
+        url.searchParams.set('category', this.selectedCategory);
+    } else {
+        url.searchParams.delete('category');
+    }
+    window.location.href = url.toString();
+},
+
+scrollToProducts() {
+    document.getElementById('products').scrollIntoView({ 
+        behavior: 'smooth' 
+    });
+},
+
+showOrderSearch() {
+    this.orderSearchVisible = true;
+},
+
+handleOrderSearchClose() {
+    this.orderSearchVisible = false;
+    this.orderSearchForm.searchValue = '';
+},
+
+searchOrder() {
+    if (!this.orderSearchForm.searchValue.trim()) {
+        this.$message.warning('请输入查询内容');
+        return;
+    }
+    
+    const params = new URLSearchParams();
+    params.append(this.orderSearchForm.searchType, this.orderSearchForm.searchValue);
+    
+    window.location.href = `/quick_order_check?${params.toString()}`;
+},
+
+orderProduct(productId) {
+    window.location.href = `/order?product_id=${productId}`;
+}
+{% endblock %}
+
+{% block vue_mounted %}
+console.log('首页加载完成');
+{% endblock %}
