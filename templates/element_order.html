@@ -1,0 +1,293 @@
+{% extends "element_base.html" %}
+
+{% block title %}下单 - 发财小狗饮品店{% endblock %}
+
+{% block extra_css %}
+<style>
+.order-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.product-card {
+    margin-bottom: 20px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+
+.product-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.spec-selector {
+    margin: 10px 0;
+}
+
+.quantity-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+.order-summary {
+    position: sticky;
+    top: 20px;
+}
+
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.total-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="app" class="order-container">
+    <el-row :gutter="20">
+        <el-col :lg="16" :md="24">
+            <!-- 产品列表 -->
+            <div v-for="product in products" :key="product.id" class="product-card">
+                <el-card>
+                    <div slot="header" class="clearfix">
+                        <span style="font-weight: 600; font-size: 18px;">{{ "{{ product.name }}" }}</span>
+                        <div style="float: right;">
+                            <el-tag type="success">¥{{ "{{ product.price }}" }}</el-tag>
+                        </div>
+                    </div>
+                    
+                    <div class="product-content">
+                        <img v-if="product.image_url" :src="product.image_url" :alt="product.name" class="product-image">
+                        
+                        <p style="color: #666; margin: 15px 0;">{{ "{{ product.description }}" }}</p>
+                        
+                        <!-- 规格选择 -->
+                        <div class="spec-selector" v-if="product.specifications && product.specifications.length > 0">
+                            <label style="font-weight: 600; margin-bottom: 10px; display: block;">选择规格：</label>
+                            <el-radio-group v-model="selectedSpecs[product.id]" @change="updatePrice(product.id)">
+                                <el-radio-button 
+                                    v-for="spec in product.specifications" 
+                                    :key="spec.id" 
+                                    :label="spec.id">
+                                    {{ "{{ spec.name }}" }} (+¥{{ "{{ spec.price_adjustment }}" }})
+                                </el-radio-button>
+                            </el-radio-group>
+                        </div>
+                        
+                        <!-- 数量选择 -->
+                        <div class="quantity-selector">
+                            <el-button 
+                                icon="el-icon-minus" 
+                                size="small" 
+                                @click="decreaseQuantity(product.id)"
+                                :disabled="quantities[product.id] <= 0">
+                            </el-button>
+                            <el-input-number 
+                                v-model="quantities[product.id]" 
+                                :min="0" 
+                                :max="99"
+                                size="small"
+                                style="margin: 0 10px; width: 80px;">
+                            </el-input-number>
+                            <el-button 
+                                icon="el-icon-plus" 
+                                size="small" 
+                                @click="increaseQuantity(product.id)">
+                            </el-button>
+                        </div>
+                        
+                        <!-- 备注 -->
+                        <el-input
+                            v-model="notes[product.id]"
+                            type="textarea"
+                            :rows="2"
+                            placeholder="特殊要求或备注（可选）"
+                            style="margin-top: 10px;">
+                        </el-input>
+                    </div>
+                </el-card>
+            </div>
+        </el-col>
+        
+        <el-col :lg="8" :md="24">
+            <!-- 订单汇总 -->
+            <div class="order-summary">
+                <el-card>
+                    <div slot="header" class="clearfix">
+                        <span style="font-weight: 600;">
+                            <i class="fas fa-shopping-cart"></i> 订单汇总
+                        </span>
+                    </div>
+                    
+                    <div v-if="cartItems.length === 0" style="text-align: center; color: #999; padding: 20px;">
+                        <i class="fas fa-shopping-cart" style="font-size: 48px; margin-bottom: 10px;"></i>
+                        <p>购物车为空</p>
+                        <p>请选择您喜欢的饮品</p>
+                    </div>
+                    
+                    <div v-else>
+                        <div v-for="item in cartItems" :key="item.id" class="cart-item">
+                            <div>
+                                <div style="font-weight: 600;">{{ "{{ item.name }}" }}</div>
+                                <div style="font-size: 12px; color: #666;" v-if="item.spec_name">
+                                    规格: {{ "{{ item.spec_name }}" }}
+                                </div>
+                                <div style="font-size: 12px; color: #666;">
+                                    ¥{{ "{{ item.price }}" }} × {{ "{{ item.quantity }}" }}
+                                </div>
+                            </div>
+                            <div style="font-weight: 600; color: #E6A23C;">
+                                ¥{{ "{{ (item.price * item.quantity).toFixed(2) }}" }}
+                            </div>
+                        </div>
+                        
+                        <div class="total-section">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 18px; font-weight: 600;">总计</span>
+                                <span style="font-size: 24px; font-weight: bold;">¥{{ "{{ totalAmount.toFixed(2) }}" }}</span>
+                            </div>
+                            
+                            <el-button 
+                                type="success" 
+                                size="large" 
+                                style="width: 100%; margin-top: 15px;"
+                                @click="submitOrder"
+                                :loading="submitting">
+                                <i class="fas fa-credit-card"></i> 立即下单
+                            </el-button>
+                        </div>
+                    </div>
+                </el-card>
+            </div>
+        </el-col>
+    </el-row>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+new Vue({
+    el: '#app',
+    data() {
+        return {
+            products: {{ products|tojson }},
+            quantities: {},
+            selectedSpecs: {},
+            notes: {},
+            submitting: false
+        }
+    },
+    computed: {
+        cartItems() {
+            const items = [];
+            for (const product of this.products) {
+                const quantity = this.quantities[product.id] || 0;
+                if (quantity > 0) {
+                    const spec = this.getSelectedSpec(product.id);
+                    const price = parseFloat(product.price) + (spec ? parseFloat(spec.price_adjustment) : 0);
+                    
+                    items.push({
+                        id: product.id,
+                        name: product.name,
+                        price: price,
+                        quantity: quantity,
+                        spec_id: spec ? spec.id : null,
+                        spec_name: spec ? spec.name : null,
+                        notes: this.notes[product.id] || ''
+                    });
+                }
+            }
+            return items;
+        },
+        totalAmount() {
+            return this.cartItems.reduce((total, item) => {
+                return total + (item.price * item.quantity);
+            }, 0);
+        }
+    },
+    mounted() {
+        // 初始化数据
+        for (const product of this.products) {
+            this.$set(this.quantities, product.id, 0);
+            this.$set(this.notes, product.id, '');
+            if (product.specifications && product.specifications.length > 0) {
+                this.$set(this.selectedSpecs, product.id, product.specifications[0].id);
+            }
+        }
+    },
+    methods: {
+        increaseQuantity(productId) {
+            this.quantities[productId] = (this.quantities[productId] || 0) + 1;
+        },
+        decreaseQuantity(productId) {
+            if (this.quantities[productId] > 0) {
+                this.quantities[productId]--;
+            }
+        },
+        getSelectedSpec(productId) {
+            const product = this.products.find(p => p.id === productId);
+            if (!product || !product.specifications) return null;
+            
+            const specId = this.selectedSpecs[productId];
+            return product.specifications.find(s => s.id === specId);
+        },
+        updatePrice(productId) {
+            // 规格变更时的处理
+            this.$forceUpdate();
+        },
+        async submitOrder() {
+            if (this.cartItems.length === 0) {
+                this.$message.warning('请至少选择一个商品');
+                return;
+            }
+            
+            this.submitting = true;
+            
+            try {
+                const orderData = {
+                    items: this.cartItems,
+                    total_amount: this.totalAmount
+                };
+                
+                const response = await fetch('/order/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.$message.success('订单提交成功！');
+                    window.location.href = `/payment/${result.order_id}`;
+                } else {
+                    this.$message.error(result.message || '订单提交失败');
+                }
+            } catch (error) {
+                console.error('提交订单错误:', error);
+                this.$message.error('网络错误，请重试');
+            } finally {
+                this.submitting = false;
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

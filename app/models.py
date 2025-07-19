@@ -88,6 +88,7 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     confirmed_at = db.Column(db.DateTime, nullable=True)
     confirmed_by = db.Column(db.String(80), nullable=True)  # 管理员用户名
+    reject_reason = db.Column(db.Text, nullable=True)  # 拒绝原因
     refund_reason = db.Column(db.Text, nullable=True)  # 退款原因
     refunded_at = db.Column(db.DateTime, nullable=True)  # 退款时间
     refund_qr_code = db.Column(db.String(255), nullable=True)  # 退款收款二维码路径
@@ -201,6 +202,35 @@ class Order(db.Model):
         }
         return status_map.get(self.status, self.status)
 
+    @property
+    def customer_name(self):
+        """获取客户姓名"""
+        return self.user.username if self.user else '未知用户'
+
+    @property
+    def customer_phone(self):
+        """获取客户手机号"""
+        return self.user.phone if self.user else '未知手机号'
+
+    @property
+    def product_name(self):
+        """获取主要产品名称（第一个订单项的产品名称）"""
+        if self.order_items:
+            return self.order_items[0].product.name
+        return '未知产品'
+
+    @property
+    def quantity(self):
+        """获取总数量"""
+        return sum(item.quantity for item in self.order_items)
+
+    @property
+    def size(self):
+        """获取规格（第一个订单项的规格）"""
+        if self.order_items:
+            return self.order_items[0].size or '标准'
+        return '标准'
+
 class OrderItem(db.Model):
     """订单项模型"""
     id = db.Column(db.Integer, primary_key=True)
@@ -214,6 +244,9 @@ class OrderItem(db.Model):
     sugar_level = db.Column(db.String(20), nullable=True)  # 糖度选择
     ice_level = db.Column(db.String(20), nullable=True)  # 冰量选择
     notes = db.Column(db.Text, nullable=True)  # 特殊要求
+
+    # 关联产品（使用已存在的反向引用）
+    product = db.relationship('DrinkProduct', foreign_keys=[drink_product_id], lazy=True, overlaps="drink_product,order_items")
 
     def __repr__(self):
         return f'<OrderItem {self.id}>'

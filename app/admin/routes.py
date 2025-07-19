@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash, session, make_response
+from flask import render_template, request, redirect, url_for, flash, session, make_response, jsonify
 from datetime import datetime
 from functools import wraps
 from app.admin import bp
@@ -54,9 +54,6 @@ def dashboard():
     # 最近订单
     recent_orders = Order.query.order_by(Order.created_at.desc()).limit(10).all()
 
-    # 检查是否使用Element UI版本
-    use_element = request.args.get('ui') == 'element'
-
     template_data = {
         'pending_orders': pending_orders,
         'confirmed_orders': confirmed_orders,
@@ -74,10 +71,7 @@ def dashboard():
         'recent_orders': recent_orders
     }
 
-    if use_element:
-        return render_template('admin/element_dashboard.html', **template_data)
-    else:
-        return render_template('admin/dashboard.html', **template_data)
+    return render_template('admin/element_dashboard.html', **template_data)
 
 @bp.route('/orders')
 @admin_required
@@ -97,13 +91,7 @@ def orders():
         page=page, per_page=20, error_out=False  # 增加每页显示数量
     )
 
-    # 检查是否使用Element UI版本
-    use_element = request.args.get('ui') == 'element'
-
-    if use_element:
-        return render_template('admin/element_orders.html', orders=orders, status_filter=status_filter)
-    else:
-        return render_template('admin/orders.html', orders=orders, status_filter=status_filter)
+    return render_template('admin/element_orders.html', orders=orders, status_filter=status_filter)
 
 @bp.route('/order/<int:order_id>')
 @admin_required
@@ -119,7 +107,7 @@ def order_detail(order_id):
         print(f"获取打印机列表失败: {e}")
         available_printers = []
 
-    return render_template('admin/order_detail.html',
+    return render_template('admin/element_order_detail.html',
                          order=order,
                          available_printers=available_printers)
 
@@ -128,8 +116,8 @@ def order_detail(order_id):
 def confirm_order(order_id):
     """确认订单"""
     order = Order.query.get_or_404(order_id)
-
-    if order.status not in ['pending', 'confirmed']:
+    
+    if order.status != 'pending':
         flash('订单状态不允许确认', 'error')
         return redirect(url_for('admin.order_detail', order_id=order_id))
     
@@ -181,11 +169,11 @@ def confirm_order(order_id):
 def reject_order(order_id):
     """拒绝订单"""
     order = Order.query.get_or_404(order_id)
-    
+
     if order.status != 'pending':
         flash('订单状态不允许拒绝', 'error')
         return redirect(url_for('admin.order_detail', order_id=order_id))
-    
+
     order.status = 'rejected'
     order.confirmed_at = datetime.utcnow()
     order.confirmed_by = session.get('admin_username', 'admin')
@@ -199,8 +187,70 @@ def reject_order(order_id):
         print(f"推送通知失败: {e}")
 
     flash(f'订单 {order_id} 已拒绝', 'warning')
-    
+
     return redirect(url_for('admin.order_detail', order_id=order_id))
+
+@bp.route('/order/<int:order_id>/update_status', methods=['POST'])
+@admin_required
+def update_order_status(order_id):
+    """通用订单状态更新接口（用于Element UI）"""
+    order = Order.query.get_or_404(order_id)
+
+    try:
+        status = request.form.get('status')
+        reason = request.form.get('reason', '')
+
+        if not status:
+            return jsonify({'success': False, 'message': '状态参数缺失'}), 400
+
+        # 验证状态转换的合法性
+        if status == 'confirmed' and order.status != 'pending':
+            return jsonify({'success': False, 'message': '订单状态不允许确认'}), 400
+        elif status == 'rejected' and order.status != 'pending':
+            return jsonify({'success': False, 'message': '订单状态不允许拒绝'}), 400
+        elif status == 'completed' and order.status not in ['confirmed', 'paid']:
+            return jsonify({'success': False, 'message': '只有已确认或已支付的订单才能标记为完成'}), 400
+
+        # 更新订单状态
+        old_status = order.status
+        order.status = status
+        order.confirmed_at = datetime.utcnow()
+        order.confirmed_by = session.get('admin_username', 'admin')
+
+        # 如果是拒绝订单，保存拒绝原因
+        if status == 'rejected' and reason:
+            order.reject_reason = reason
+
+        # 更新用户统计信息
+        if status == 'confirmed':
+            order.user.update_order_stats()
+
+        db.session.commit()
+
+        # 强制刷新数据库会话，确保状态更新立即生效
+        db.session.expire_all()
+
+        # 发送推送通知
+        try:
+            if status == 'confirmed':
+                pushdeer_service.send_order_notification(order, 'order_confirmed')
+            elif status == 'rejected':
+                pushdeer_service.send_order_notification(order, 'order_cancelled')
+            elif status == 'completed':
+                pushdeer_service.send_order_notification(order, 'order_completed')
+        except Exception as e:
+            print(f"推送通知失败: {e}")
+
+        return jsonify({
+            'success': True,
+            'message': f'订单状态已更新为{status}',
+            'old_status': old_status,
+            'new_status': status
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'}), 500
 
 @bp.route('/order/<int:order_id>/approve_cancel', methods=['POST'])
 @admin_required
@@ -352,19 +402,215 @@ def products():
     products = DrinkProduct.query.paginate(
         page=page, per_page=10, error_out=False
     )
-    return render_template('admin/products.html', products=products)
+
+    # 获取所有分类用于弹窗
+    categories = Category.query.filter_by(is_active=True).order_by(Category.sort_order).all()
+
+    return render_template('admin/element_products.html', products=products, categories=categories)
 
 @bp.route('/product/add', methods=['GET', 'POST'])
 @admin_required
 def add_product():
     """添加新产品"""
     if request.method == 'POST':
+        try:
+            name = request.form.get('name')
+            description = request.form.get('description')
+            price = float(request.form.get('price', 0))
+            category_id = request.form.get('category_id')
+            size_options = request.form.get('size_options')
+            temperature_options = request.form.get('temperature_options')
+
+            # 处理图片上传
+            image_path = None
+            if 'image' in request.files:
+                file = request.files['image']
+                if file.filename:
+                    image_path = save_uploaded_file(file)
+
+            # 获取分类名称作为备用
+            category_name = None
+            if category_id:
+                category_obj = Category.query.get(category_id)
+                if category_obj:
+                    category_name = category_obj.name
+
+            product = DrinkProduct(
+                name=name,
+                description=description,
+                price=price,
+                category_id=int(category_id) if category_id else None,
+                category=category_name,
+                image=image_path,
+                size_options=size_options,
+                temperature_options=temperature_options,
+                is_active='is_active' in request.form
+            )
+
+            db.session.add(product)
+            db.session.commit()
+
+            # 检查是否是AJAX请求
+            if request.headers.get('Content-Type') == 'application/json' or request.is_json:
+                return jsonify({'success': True, 'message': f'产品 "{name}" 添加成功'})
+            else:
+                flash(f'产品 "{name}" 添加成功', 'success')
+                return redirect(url_for('admin.products'))
+
+        except Exception as e:
+            db.session.rollback()
+            if request.headers.get('Content-Type') == 'application/json' or request.is_json:
+                return jsonify({'success': False, 'message': f'添加失败: {str(e)}'})
+            else:
+                flash(f'添加失败: {str(e)}', 'error')
+                return redirect(url_for('admin.add_product'))
+
+    categories = Category.query.filter_by(is_active=True).order_by(Category.sort_order).all()
+    return render_template('admin/element_product_form.html', product=None, action='添加', categories=categories)
+
+@bp.route('/product/<int:product_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def edit_product(product_id):
+    """编辑产品"""
+    product = DrinkProduct.query.get_or_404(product_id)
+
+    if request.method == 'POST':
+        try:
+            product.name = request.form.get('name')
+            product.description = request.form.get('description')
+            product.price = float(request.form.get('price', 0))
+
+            category_id = request.form.get('category_id')
+            product.category_id = int(category_id) if category_id else None
+
+            # 处理图片上传
+            if 'image' in request.files:
+                file = request.files['image']
+                if file.filename:
+                    # 删除旧图片
+                    if product.image:
+                        delete_uploaded_file(product.image)
+                    # 保存新图片
+                    product.image = save_uploaded_file(file)
+
+            # 更新分类名称作为备用
+            if category_id:
+                category_obj = Category.query.get(category_id)
+                if category_obj:
+                    product.category = category_obj.name
+            else:
+                product.category = None
+
+            product.size_options = request.form.get('size_options')
+            product.temperature_options = request.form.get('temperature_options')
+            product.is_active = 'is_active' in request.form
+
+            db.session.commit()
+
+            # 检查是否是AJAX请求
+            if request.headers.get('Content-Type') == 'application/json' or request.is_json:
+                return jsonify({'success': True, 'message': f'产品 "{product.name}" 更新成功'})
+            else:
+                flash(f'产品 "{product.name}" 更新成功', 'success')
+                return redirect(url_for('admin.products'))
+
+        except Exception as e:
+            db.session.rollback()
+            if request.headers.get('Content-Type') == 'application/json' or request.is_json:
+                return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
+            else:
+                flash(f'更新失败: {str(e)}', 'error')
+                return redirect(url_for('admin.edit_product', product_id=product_id))
+
+    categories = Category.query.filter_by(is_active=True).order_by(Category.sort_order).all()
+    return render_template('admin/element_product_form.html', product=product, action='编辑', categories=categories)
+
+@bp.route('/product/<int:product_id>/delete', methods=['POST'])
+@admin_required
+def delete_product(product_id):
+    """删除产品"""
+    product = DrinkProduct.query.get_or_404(product_id)
+
+    # 检查是否有相关订单
+    order_count = OrderItem.query.filter_by(drink_product_id=product_id).count()
+    if order_count > 0:
+        flash(f'无法删除产品 "{product.name}"，因为存在相关订单记录', 'error')
+    else:
+        name = product.name
+        # 删除关联的图片文件
+        if product.image:
+            delete_uploaded_file(product.image)
+        db.session.delete(product)
+        db.session.commit()
+        flash(f'产品 "{name}" 删除成功', 'success')
+
+    return redirect(url_for('admin.products'))
+
+@bp.route('/upload_image', methods=['POST'])
+@admin_required
+def upload_image():
+    """处理图片上传"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': '没有选择文件'})
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': '没有选择文件'})
+
+        if file:
+            # 使用工具函数保存文件
+            file_path = save_uploaded_file(file)
+            if file_path:
+                return jsonify({
+                    'success': True,
+                    'url': file_path,
+                    'message': '图片上传成功'
+                })
+            else:
+                return jsonify({'success': False, 'message': '不支持的文件格式'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'上传失败: {str(e)}'})
+
+    return jsonify({'success': False, 'message': '上传失败'})
+
+# 产品管理API路由
+@bp.route('/api/product/<int:product_id>')
+@admin_required
+def api_get_product(product_id):
+    """获取产品详情API"""
+    try:
+        product = DrinkProduct.query.get_or_404(product_id)
+        return jsonify({
+            'success': True,
+            'product': {
+                'id': product.id,
+                'name': product.name,
+                'category_id': product.category_id,
+                'price': product.price,
+                'description': product.description,
+                'size_options': product.size_options,
+                'temperature_options': product.temperature_options,
+                'is_active': product.is_active,
+                'image': product.image
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取产品信息失败: {str(e)}'})
+
+@bp.route('/api/product/add', methods=['POST'])
+@admin_required
+def api_add_product():
+    """添加产品API"""
+    try:
         name = request.form.get('name')
         description = request.form.get('description')
         price = float(request.form.get('price', 0))
         category_id = request.form.get('category_id')
         size_options = request.form.get('size_options')
         temperature_options = request.form.get('temperature_options')
+        is_active = request.form.get('is_active') == 'true'
 
         # 处理图片上传
         image_path = None
@@ -388,24 +634,26 @@ def add_product():
             category=category_name,
             image=image_path,
             size_options=size_options,
-            temperature_options=temperature_options
+            temperature_options=temperature_options,
+            is_active=is_active
         )
 
         db.session.add(product)
         db.session.commit()
-        flash(f'产品 "{name}" 添加成功', 'success')
-        return redirect(url_for('admin.products'))
 
-    categories = Category.query.filter_by(is_active=True).order_by(Category.sort_order).all()
-    return render_template('admin/product_form.html', product=None, action='添加', categories=categories)
+        return jsonify({'success': True, 'message': f'产品 "{name}" 添加成功'})
 
-@bp.route('/product/<int:product_id>/edit', methods=['GET', 'POST'])
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'添加失败: {str(e)}'})
+
+@bp.route('/api/product/<int:product_id>/edit', methods=['POST'])
 @admin_required
-def edit_product(product_id):
-    """编辑产品"""
-    product = DrinkProduct.query.get_or_404(product_id)
+def api_edit_product(product_id):
+    """编辑产品API"""
+    try:
+        product = DrinkProduct.query.get_or_404(product_id)
 
-    if request.method == 'POST':
         product.name = request.form.get('name')
         product.description = request.form.get('description')
         product.price = float(request.form.get('price', 0))
@@ -433,35 +681,391 @@ def edit_product(product_id):
 
         product.size_options = request.form.get('size_options')
         product.temperature_options = request.form.get('temperature_options')
-        product.is_active = 'is_active' in request.form
+        product.is_active = request.form.get('is_active') == 'true'
 
         db.session.commit()
-        flash(f'产品 "{product.name}" 更新成功', 'success')
-        return redirect(url_for('admin.products'))
 
-    categories = Category.query.filter_by(is_active=True).order_by(Category.sort_order).all()
-    return render_template('admin/product_form.html', product=product, action='编辑', categories=categories)
+        return jsonify({'success': True, 'message': f'产品 "{product.name}" 更新成功'})
 
-@bp.route('/product/<int:product_id>/delete', methods=['POST'])
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
+
+@bp.route('/api/product/<int:product_id>/toggle', methods=['POST'])
 @admin_required
-def delete_product(product_id):
-    """删除产品"""
-    product = DrinkProduct.query.get_or_404(product_id)
+def api_toggle_product(product_id):
+    """切换产品状态API"""
+    try:
+        product = DrinkProduct.query.get_or_404(product_id)
+        product.is_active = not product.is_active
+        db.session.commit()
 
-    # 检查是否有相关订单
-    order_count = OrderItem.query.filter_by(drink_product_id=product_id).count()
-    if order_count > 0:
-        flash(f'无法删除产品 "{product.name}"，因为存在相关订单记录', 'error')
-    else:
+        status = '启用' if product.is_active else '停售'
+        return jsonify({'success': True, 'message': f'产品 "{product.name}" 已{status}'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'操作失败: {str(e)}'})
+
+@bp.route('/api/product/<int:product_id>/delete', methods=['POST'])
+@admin_required
+def api_delete_product(product_id):
+    """删除产品API"""
+    try:
+        product = DrinkProduct.query.get_or_404(product_id)
+
+        # 检查是否有相关订单
+        order_count = OrderItem.query.filter_by(drink_product_id=product_id).count()
+        if order_count > 0:
+            return jsonify({'success': False, 'message': f'无法删除产品 "{product.name}"，因为存在相关订单记录'})
+
         name = product.name
         # 删除关联的图片文件
         if product.image:
             delete_uploaded_file(product.image)
+
         db.session.delete(product)
         db.session.commit()
-        flash(f'产品 "{name}" 删除成功', 'success')
 
-    return redirect(url_for('admin.products'))
+        return jsonify({'success': True, 'message': f'产品 "{name}" 删除成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
+
+# 分类管理API路由
+@bp.route('/api/category/<int:category_id>')
+@admin_required
+def api_get_category(category_id):
+    """获取分类详情API"""
+    try:
+        category = Category.query.get_or_404(category_id)
+        return jsonify({
+            'success': True,
+            'category': {
+                'id': category.id,
+                'name': category.name,
+                'description': category.description,
+                'sort_order': category.sort_order,
+                'is_active': category.is_active
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取分类信息失败: {str(e)}'})
+
+@bp.route('/api/category/add', methods=['POST'])
+@admin_required
+def api_add_category():
+    """添加分类API"""
+    try:
+        name = request.form.get('name')
+        description = request.form.get('description')
+        sort_order = int(request.form.get('sort_order', 0))
+        is_active = request.form.get('is_active') == 'true'
+
+        # 检查分类名称是否已存在
+        existing_category = Category.query.filter_by(name=name).first()
+        if existing_category:
+            return jsonify({'success': False, 'message': f'分类 "{name}" 已存在'})
+
+        category = Category(
+            name=name,
+            description=description,
+            sort_order=sort_order,
+            is_active=is_active
+        )
+
+        db.session.add(category)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': f'分类 "{name}" 添加成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'添加失败: {str(e)}'})
+
+@bp.route('/api/category/<int:category_id>/edit', methods=['POST'])
+@admin_required
+def api_edit_category(category_id):
+    """编辑分类API"""
+    try:
+        category = Category.query.get_or_404(category_id)
+
+        name = request.form.get('name')
+
+        # 检查分类名称是否已存在（排除当前分类）
+        existing_category = Category.query.filter(Category.name == name, Category.id != category_id).first()
+        if existing_category:
+            return jsonify({'success': False, 'message': f'分类 "{name}" 已存在'})
+
+        category.name = name
+        category.description = request.form.get('description')
+        category.sort_order = int(request.form.get('sort_order', 0))
+        category.is_active = request.form.get('is_active') == 'true'
+
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': f'分类 "{category.name}" 更新成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
+
+@bp.route('/api/category/<int:category_id>/toggle', methods=['POST'])
+@admin_required
+def api_toggle_category(category_id):
+    """切换分类状态API"""
+    try:
+        category = Category.query.get_or_404(category_id)
+        category.is_active = not category.is_active
+        db.session.commit()
+
+        status = '启用' if category.is_active else '禁用'
+        return jsonify({'success': True, 'message': f'分类 "{category.name}" 已{status}'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'操作失败: {str(e)}'})
+
+@bp.route('/api/category/<int:category_id>/delete', methods=['POST'])
+@admin_required
+def api_delete_category(category_id):
+    """删除分类API"""
+    try:
+        category = Category.query.get_or_404(category_id)
+
+        # 检查是否有相关产品
+        product_count = DrinkProduct.query.filter_by(category_id=category_id).count()
+
+        name = category.name
+
+        # 如果有相关产品，将它们的分类设为None
+        if product_count > 0:
+            products = DrinkProduct.query.filter_by(category_id=category_id).all()
+            for product in products:
+                product.category_id = None
+                product.category = None
+
+        db.session.delete(category)
+        db.session.commit()
+
+        message = f'分类 "{name}" 删除成功'
+        if product_count > 0:
+            message += f'，{product_count} 个产品已设为未分类'
+
+        return jsonify({'success': True, 'message': message})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
+
+# 订单管理API路由
+@bp.route('/api/order/<int:order_id>')
+@admin_required
+def api_get_order(order_id):
+    """获取订单详情API"""
+    try:
+        order = Order.query.get_or_404(order_id)
+
+        # 构建订单项信息
+        items = []
+        for item in order.order_items:
+            items.append({
+                'id': item.id,
+                'name': item.drink_product.name if item.drink_product else '未知产品',
+                'quantity': item.quantity,
+                'specs': f"{item.size or ''} {item.temperature or ''} {item.sugar_level or ''}".strip(),
+                'subtotal': f"{item.subtotal:.2f}"
+            })
+
+        return jsonify({
+            'success': True,
+            'order': {
+                'id': order.id,
+                'customer_name': order.user.username if order.user else '未知客户',
+                'customer_phone': order.user.phone if order.user else '',
+                'status': order.status,
+                'amount': f"{order.total_amount:.2f}",
+                'created_at': order.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'notes': order.notes or '',
+                'items': items
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取订单信息失败: {str(e)}'})
+
+@bp.route('/api/order/<int:order_id>/confirm', methods=['POST'])
+@admin_required
+def api_confirm_order(order_id):
+    """确认订单API"""
+    try:
+        order = Order.query.get_or_404(order_id)
+
+        if order.status != 'pending':
+            return jsonify({'success': False, 'message': '只能确认待处理的订单'})
+
+        order.status = 'confirmed'
+        db.session.commit()
+
+        # 发送确认通知
+        try:
+            pushdeer_service.send_order_notification(order, 'order_confirmed')
+        except Exception as e:
+            print(f"推送通知失败: {e}")
+
+        return jsonify({'success': True, 'message': f'订单 #{order.id} 确认成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'确认失败: {str(e)}'})
+
+@bp.route('/api/order/<int:order_id>/reject', methods=['POST'])
+@admin_required
+def api_reject_order(order_id):
+    """拒绝订单API"""
+    try:
+        order = Order.query.get_or_404(order_id)
+
+        if order.status != 'pending':
+            return jsonify({'success': False, 'message': '只能拒绝待处理的订单'})
+
+        reason = request.form.get('reason', '').strip()
+        if not reason:
+            return jsonify({'success': False, 'message': '请输入拒绝原因'})
+
+        order.status = 'rejected'
+        order.reject_reason = reason
+        db.session.commit()
+
+        # 发送拒绝通知
+        try:
+            pushdeer_service.send_order_notification(order, 'order_rejected')
+        except Exception as e:
+            print(f"推送通知失败: {e}")
+
+        return jsonify({'success': True, 'message': f'订单 #{order.id} 已拒绝'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'拒绝失败: {str(e)}'})
+
+# 客户管理API路由
+@bp.route('/api/customer/<int:customer_id>')
+@admin_required
+def api_get_customer(customer_id):
+    """获取客户详情API"""
+    try:
+        customer = User.query.get_or_404(customer_id)
+
+        # 获取客户的最近订单
+        recent_orders = Order.query.filter_by(user_id=customer_id).order_by(Order.created_at.desc()).limit(5).all()
+        orders_data = []
+        for order in recent_orders:
+            orders_data.append({
+                'id': order.id,
+                'amount': f"{order.total_amount:.2f}",
+                'status': order.status,
+                'created_at': order.created_at.strftime('%Y-%m-%d %H:%M')
+            })
+
+        # 计算平均订单金额
+        avg_amount = customer.total_spent / customer.order_count if customer.order_count > 0 else 0
+
+        return jsonify({
+            'success': True,
+            'customer': {
+                'id': customer.id,
+                'username': customer.username,
+                'email': customer.email,
+                'phone': customer.phone,
+                'created_at': customer.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'last_login': customer.last_login.strftime('%Y-%m-%d %H:%M:%S') if customer.last_login else None,
+                'order_count': customer.order_count or 0,
+                'total_spent': f"{customer.total_spent or 0:.2f}",
+                'avg_order_amount': f"{avg_amount:.2f}",
+                'last_order_date': customer.last_order_date.strftime('%Y-%m-%d') if customer.last_order_date else None,
+                'level': getattr(customer, 'level', 'normal'),
+                'notes': getattr(customer, 'notes', ''),
+                'recent_orders': orders_data
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取客户信息失败: {str(e)}'})
+
+@bp.route('/api/customer/<int:customer_id>/edit', methods=['POST'])
+@admin_required
+def api_edit_customer(customer_id):
+    """编辑客户API"""
+    try:
+        customer = User.query.get_or_404(customer_id)
+
+        username = request.form.get('username')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        level = request.form.get('level', 'normal')
+        notes = request.form.get('notes', '')
+
+        # 检查用户名是否已存在（排除当前用户）
+        if username != customer.username:
+            existing_user = User.query.filter(User.username == username, User.id != customer_id).first()
+            if existing_user:
+                return jsonify({'success': False, 'message': f'用户名 "{username}" 已存在'})
+
+        # 检查邮箱是否已存在（排除当前用户）
+        if email and email != customer.email:
+            existing_email = User.query.filter(User.email == email, User.id != customer_id).first()
+            if existing_email:
+                return jsonify({'success': False, 'message': f'邮箱 "{email}" 已存在'})
+
+        customer.username = username
+        customer.email = email if email else None
+        customer.phone = phone if phone else None
+
+        # 如果User模型有level和notes字段，则更新
+        if hasattr(customer, 'level'):
+            customer.level = level
+        if hasattr(customer, 'notes'):
+            customer.notes = notes
+
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': f'客户 "{customer.username}" 更新成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'})
+
+@bp.route('/api/customer/<int:customer_id>/delete', methods=['POST'])
+@admin_required
+def api_delete_customer(customer_id):
+    """删除客户API"""
+    try:
+        customer = User.query.get_or_404(customer_id)
+
+        # 检查是否有相关订单
+        order_count = Order.query.filter_by(user_id=customer_id).count()
+
+        name = customer.username
+
+        # 注意：通常不建议直接删除有订单的客户，这里只是标记为删除或禁用
+        # 如果确实需要删除，可以考虑软删除或者将订单的用户ID设为NULL
+        if order_count > 0:
+            # 软删除：标记为已删除但保留数据
+            if hasattr(customer, 'is_deleted'):
+                customer.is_deleted = True
+                db.session.commit()
+                return jsonify({'success': True, 'message': f'客户 "{name}" 已标记为删除，订单记录已保留'})
+            else:
+                return jsonify({'success': False, 'message': f'无法删除客户 "{name}"，因为存在 {order_count} 个相关订单'})
+        else:
+            # 没有订单记录，可以直接删除
+            db.session.delete(customer)
+            db.session.commit()
+            return jsonify({'success': True, 'message': f'客户 "{name}" 删除成功'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
 
 @bp.route('/product/<int:product_id>/toggle', methods=['POST'])
 @admin_required
@@ -489,7 +1093,7 @@ def categories():
     for category in categories_pagination.items:
         category.product_count = DrinkProduct.query.filter_by(category_id=category.id).count()
 
-    return render_template('admin/categories.html', categories=categories_pagination)
+    return render_template('admin/element_categories.html', categories=categories_pagination)
 
 @bp.route('/category/add', methods=['GET', 'POST'])
 @admin_required
@@ -516,7 +1120,7 @@ def add_category():
             flash(f'分类 "{name}" 添加成功', 'success')
             return redirect(url_for('admin.categories'))
 
-    return render_template('admin/category_form.html', category=None, action='添加')
+    return render_template('admin/element_category_form.html', category=None, action='添加')
 
 @bp.route('/category/<int:category_id>/edit', methods=['GET', 'POST'])
 @admin_required
@@ -544,7 +1148,7 @@ def edit_category(category_id):
     # 获取关联产品
     category.related_products = DrinkProduct.query.filter_by(category_id=category.id).all()
 
-    return render_template('admin/category_form.html', category=category, action='编辑')
+    return render_template('admin/element_category_form.html', category=category, action='编辑')
 
 @bp.route('/category/<int:category_id>/delete', methods=['POST'])
 @admin_required
@@ -601,7 +1205,7 @@ def customers():
         customer.update_order_stats()
     db.session.commit()
 
-    return render_template('admin/customers.html', customers=customers, search=search)
+    return render_template('admin/element_customers.html', customers=customers, search=search)
 
 @bp.route('/customer/<int:customer_id>')
 @admin_required
@@ -614,7 +1218,7 @@ def customer_detail(customer_id):
     # 获取客户的订单历史
     orders = Order.query.filter_by(user_id=customer_id).order_by(Order.created_at.desc()).all()
 
-    return render_template('admin/customer_detail.html', customer=customer, orders=orders)
+    return render_template('admin/element_customer_detail.html', customer=customer, orders=orders)
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -652,7 +1256,8 @@ def pushdeer_configs():
     configs = PushDeerConfig.query.order_by(PushDeerConfig.created_at.desc()).paginate(
         page=page, per_page=10, error_out=False
     )
-    return render_template('admin/pushdeer_configs.html', configs=configs)
+
+    return render_template('admin/element_pushdeer_configs.html', configs=configs)
 
 
 @bp.route('/pushdeer/add', methods=['GET', 'POST'])
@@ -691,7 +1296,7 @@ def add_pushdeer_config():
             flash(f'PushDeer配置 "{name}" 添加成功', 'success')
             return redirect(url_for('admin.pushdeer_configs'))
 
-    return render_template('admin/pushdeer_form.html', config=None, action='添加')
+    return render_template('admin/element_pushdeer_form.html', config=None, action='添加')
 
 
 @bp.route('/pushdeer/<int:config_id>/edit', methods=['GET', 'POST'])
@@ -731,7 +1336,7 @@ def edit_pushdeer_config(config_id):
             flash(f'PushDeer配置 "{config.name}" 更新成功', 'success')
             return redirect(url_for('admin.pushdeer_configs'))
 
-    return render_template('admin/pushdeer_form.html', config=config, action='编辑')
+    return render_template('admin/element_pushdeer_form.html', config=config, action='编辑')
 
 
 @bp.route('/pushdeer/<int:config_id>/delete', methods=['POST'])
@@ -804,12 +1409,12 @@ def push_records():
     # 获取筛选选项
     configs = PushDeerConfig.query.all()
 
-    return render_template('admin/push_records.html',
-                         records=records,
-                         configs=configs,
-                         status_filter=status_filter,
-                         event_filter=event_filter,
-                         config_filter=config_filter)
+    return render_template('admin/element_push_records.html',
+                          records=records,
+                          configs=configs,
+                          status_filter=status_filter,
+                          event_filter=event_filter,
+                          config_filter=config_filter)
 
 
 @bp.route('/push_records/<int:record_id>')
@@ -817,7 +1422,8 @@ def push_records():
 def push_record_detail(record_id):
     """推送记录详情"""
     record = PushRecord.query.get_or_404(record_id)
-    return render_template('admin/push_record_detail.html', record=record)
+
+    return render_template('admin/element_push_record_detail.html', record=record)
 
 
 @bp.route('/push_records/<int:record_id>/delete', methods=['POST'])
@@ -865,10 +1471,11 @@ def print_management():
     pending_orders = Order.query.filter_by(status='pending').all()
     confirmed_orders = Order.query.filter_by(status='confirmed').all()
 
-    return render_template('admin/print_management.html',
-                         today_orders=today_orders,
-                         pending_orders=pending_orders,
-                         confirmed_orders=confirmed_orders)
+    return render_template('admin/element_print_management.html',
+                          today_orders=today_orders,
+                          pending_orders=pending_orders,
+                          confirmed_orders=confirmed_orders,
+                          today=today)
 
 @bp.route('/print_order/<int:order_id>')
 @admin_required
@@ -1103,23 +1710,14 @@ def announcements():
         Announcement.end_time < now
     ).count()
 
-    # 检查是否使用Element UI版本
-    use_element = request.args.get('ui') == 'element'
-
-    template_data = {
-        'announcements': announcements,
-        'search': search,
-        'type_filter': announcement_type,
-        'status_filter': status,
-        'active_count': active_count,
-        'homepage_count': homepage_count,
-        'expired_count': expired_count
-    }
-
-    if use_element:
-        return render_template('admin/element_announcements.html', **template_data)
-    else:
-        return render_template('admin/announcements.html', **template_data)
+    return render_template('admin/element_announcements.html',
+                          announcements=announcements,
+                          search=search,
+                          announcement_type=announcement_type,
+                          status=status,
+                          active_count=active_count,
+                          homepage_count=homepage_count,
+                          expired_count=expired_count)
 
 @bp.route('/announcements/add', methods=['GET', 'POST'])
 @admin_required
@@ -1137,7 +1735,7 @@ def add_announcement():
 
         if not title or not content:
             flash('标题和内容不能为空', 'error')
-            return render_template('admin/add_announcement.html')
+            return render_template('admin/element_add_announcement.html')
 
         announcement = Announcement(
             title=title,
@@ -1168,13 +1766,7 @@ def add_announcement():
         flash('公告添加成功', 'success')
         return redirect(url_for('admin.announcements'))
 
-    # 检查是否使用Element UI版本
-    use_element = request.args.get('ui') == 'element'
-
-    if use_element:
-        return render_template('admin/element_add_announcement.html')
-    else:
-        return render_template('admin/add_announcement.html')
+    return render_template('admin/element_add_announcement.html')
 
 @bp.route('/announcements/edit/<int:announcement_id>', methods=['GET', 'POST'])
 @admin_required
@@ -1195,7 +1787,7 @@ def edit_announcement(announcement_id):
 
         if not announcement.title or not announcement.content:
             flash('标题和内容不能为空', 'error')
-            return render_template('admin/edit_announcement.html', announcement=announcement)
+            return render_template('admin/element_edit_announcement.html', announcement=announcement)
 
         # 处理时间
         if start_time:
@@ -1220,7 +1812,7 @@ def edit_announcement(announcement_id):
         flash('公告更新成功', 'success')
         return redirect(url_for('admin.announcements'))
 
-    return render_template('admin/edit_announcement.html', announcement=announcement)
+    return render_template('admin/element_edit_announcement.html', announcement=announcement)
 
 @bp.route('/announcements/delete/<int:announcement_id>')
 @admin_required
@@ -1254,7 +1846,8 @@ def toggle_announcement(announcement_id):
 def menu_config():
     """菜单配置管理"""
     menus = MenuConfig.query.order_by(MenuConfig.sort_order).all()
-    return render_template('admin/menu_config.html', menus=menus)
+
+    return render_template('admin/element_menu_config.html', menus=menus)
 
 @bp.route('/menu_config/init')
 @admin_required
@@ -1333,6 +1926,60 @@ def toggle_menu_visibility(menu_id):
     flash(f'菜单"{menu.menu_name}"已设置为{status}', 'success')
     return redirect(url_for('admin.menu_config'))
 
+@bp.route('/menu_config/<int:menu_id>/move_up')
+@admin_required
+def move_menu_up(menu_id):
+    """菜单上移"""
+    try:
+        menu = MenuConfig.query.get_or_404(menu_id)
+        current_order = menu.sort_order
+
+        # 找到上一个菜单项
+        prev_menu = MenuConfig.query.filter(
+            MenuConfig.sort_order < current_order
+        ).order_by(MenuConfig.sort_order.desc()).first()
+
+        if prev_menu:
+            # 交换排序顺序
+            menu.sort_order, prev_menu.sort_order = prev_menu.sort_order, menu.sort_order
+            db.session.commit()
+            flash(f'菜单"{menu.menu_name}"已上移', 'success')
+        else:
+            flash(f'菜单"{menu.menu_name}"已经在最顶部', 'info')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'上移失败: {str(e)}', 'error')
+
+    return redirect(url_for('admin.menu_config'))
+
+@bp.route('/menu_config/<int:menu_id>/move_down')
+@admin_required
+def move_menu_down(menu_id):
+    """菜单下移"""
+    try:
+        menu = MenuConfig.query.get_or_404(menu_id)
+        current_order = menu.sort_order
+
+        # 找到下一个菜单项
+        next_menu = MenuConfig.query.filter(
+            MenuConfig.sort_order > current_order
+        ).order_by(MenuConfig.sort_order.asc()).first()
+
+        if next_menu:
+            # 交换排序顺序
+            menu.sort_order, next_menu.sort_order = next_menu.sort_order, menu.sort_order
+            db.session.commit()
+            flash(f'菜单"{menu.menu_name}"已下移', 'success')
+        else:
+            flash(f'菜单"{menu.menu_name}"已经在最底部', 'info')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'下移失败: {str(e)}', 'error')
+
+    return redirect(url_for('admin.menu_config'))
+
 # 管理员管理路由
 @bp.route('/admin_users')
 @admin_required
@@ -1342,7 +1989,8 @@ def admin_users():
     users = AdminUser.query.order_by(AdminUser.created_at.desc()).paginate(
         page=page, per_page=20, error_out=False
     )
-    return render_template('admin/admin_users.html', users=users)
+
+    return render_template('admin/element_admin_users.html', users=users)
 
 @bp.route('/admin_users/create', methods=['GET', 'POST'])
 @admin_required
@@ -1394,7 +2042,7 @@ def create_admin_user():
 
     # 获取所有角色
     roles = AdminRole.query.filter_by(is_active=True).all()
-    return render_template('admin/create_admin_user.html', roles=roles)
+    return render_template('admin/element_create_admin_user.html', roles=roles)
 
 @bp.route('/admin_users/<int:user_id>/edit', methods=['GET', 'POST'])
 @admin_required
@@ -1430,7 +2078,7 @@ def edit_admin_user(user_id):
             flash(f'更新失败: {str(e)}', 'error')
 
     roles = AdminRole.query.filter_by(is_active=True).all()
-    return render_template('admin/edit_admin_user.html', admin_user=admin_user, roles=roles)
+    return render_template('admin/element_edit_admin_user.html', admin_user=admin_user, roles=roles)
 
 @bp.route('/admin_users/<int:user_id>/toggle')
 @admin_required
@@ -1450,7 +2098,7 @@ def toggle_admin_user(user_id):
 def admin_roles():
     """角色管理"""
     roles = AdminRole.query.order_by(AdminRole.created_at.desc()).all()
-    return render_template('admin/admin_roles.html', roles=roles)
+    return render_template('admin/element_admin_roles.html', roles=roles)
 
 @bp.route('/admin_roles/create', methods=['GET', 'POST'])
 @admin_required
@@ -1491,7 +2139,7 @@ def create_admin_role():
             flash(f'创建失败: {str(e)}', 'error')
 
     permissions = Permission.query.filter_by(is_active=True).order_by(Permission.module, Permission.permission_name).all()
-    return render_template('admin/create_admin_role.html', permissions=permissions)
+    return render_template('admin/element_create_admin_role.html', permissions=permissions)
 
 @bp.route('/admin_roles/<int:role_id>/edit', methods=['GET', 'POST'])
 @admin_required
@@ -1521,7 +2169,7 @@ def edit_admin_role(role_id):
             flash(f'更新失败: {str(e)}', 'error')
 
     permissions = Permission.query.filter_by(is_active=True).order_by(Permission.module, Permission.permission_name).all()
-    return render_template('admin/edit_admin_role.html', role=role, permissions=permissions)
+    return render_template('admin/element_edit_admin_role.html', role=role, permissions=permissions)
 
 # 权限管理路由
 @bp.route('/permissions')
@@ -1537,7 +2185,7 @@ def permissions():
             grouped_permissions[permission.module] = []
         grouped_permissions[permission.module].append(permission)
 
-    return render_template('admin/permissions.html', grouped_permissions=grouped_permissions)
+    return render_template('admin/element_permissions.html', grouped_permissions=grouped_permissions)
 
 @bp.route('/permissions/init')
 @admin_required
@@ -1605,7 +2253,8 @@ def init_permissions():
 def payment_config():
     """收款码配置管理"""
     payments = PaymentConfig.query.order_by(PaymentConfig.sort_order).all()
-    return render_template('admin/payment_config.html', payments=payments)
+
+    return render_template('admin/element_payment_config.html', payments=payments)
 
 @bp.route('/payment_config/create', methods=['GET', 'POST'])
 @admin_required
@@ -1661,7 +2310,7 @@ def create_payment_config():
             db.session.rollback()
             flash(f'创建失败: {str(e)}', 'error')
 
-    return render_template('admin/create_payment_config.html')
+    return render_template('admin/element_create_payment_config.html')
 
 @bp.route('/payment_config/<int:config_id>/edit', methods=['GET', 'POST'])
 @admin_required
@@ -1709,7 +2358,7 @@ def edit_payment_config(config_id):
             db.session.rollback()
             flash(f'更新失败: {str(e)}', 'error')
 
-    return render_template('admin/edit_payment_config.html', payment_config=payment_config)
+    return render_template('admin/element_edit_payment_config.html', payment_config=payment_config)
 
 @bp.route('/payment_config/<int:config_id>/toggle')
 @admin_required

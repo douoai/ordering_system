@@ -1,0 +1,426 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}权限管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}permissions{% endblock %}
+
+{% block page_icon %}<i class="fas fa-key"></i>{% endblock %}
+{% block page_title %}权限管理{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="showAddDialog">
+    添加权限
+</el-button>
+<el-button type="success" icon="el-icon-setting" @click="initPermissions">
+    初始化权限
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 权限列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 权限列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ grouped_permissions.values()|sum(attribute='|length')|default(0) }} 个权限</el-tag>
+        </div>
+    </div>
+
+    {% if grouped_permissions %}
+    <div v-for="(module, moduleName) in groupedPermissions" :key="moduleName" style="margin-bottom: 30px;">
+        <el-card shadow="never">
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600; color: #409EFF;">
+                    <i class="fas fa-folder"></i> {{ "{{ moduleName }}" }}
+                </span>
+                <div style="float: right;">
+                    <el-tag type="primary" size="small">{{ "{{ module.length }}" }} 个权限</el-tag>
+                </div>
+            </div>
+            
+            <el-table :data="module" style="width: 100%">
+                <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                <el-table-column prop="permission_name" label="权限名称" min-width="150">
+                    <template slot-scope="scope">
+                        <el-tag type="success" size="small">{{ "{{ scope.row.permission_name }}" }}</el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="permission_code" label="权限代码" min-width="180">
+                    <template slot-scope="scope">
+                        <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">
+                            {{ "{{ scope.row.permission_code }}" }}
+                        </code>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="description" label="权限描述" min-width="200">
+                    <template slot-scope="scope">
+                        <span style="color: #606266;">{{ "{{ scope.row.description || '无描述' }}" }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="is_active" label="状态" width="100">
+                    <template slot-scope="scope">
+                        <el-tag :type="scope.row.is_active ? 'success' : 'danger'" size="small">
+                            <span v-if="scope.row.is_active">启用</span>
+                    <span v-else>禁用</span>
+                        </el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="created_at" label="创建时间" width="150">
+                    <template slot-scope="scope">
+                        <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="操作" width="200">
+                    <template slot-scope="scope">
+                        <el-button type="text" size="small" @click="editPermission(scope.row.id)">
+                            <i class="fas fa-edit"></i> 编辑
+                        </el-button>
+                        <el-button type="text" size="small" 
+                                   :style="{color: scope.row.is_active ? '#F56C6C' : '#67C23A'}"
+                                   @click="togglePermissionStatus(scope.row.id, scope.row.is_active)">
+                            <span v-if="scope.row.is_active">禁用</span>
+                    <span v-else>启用</span>
+                        </el-button>
+                        <el-button type="text" size="small" 
+                                   style="color: #F56C6C;" 
+                                   @click="deletePermission(scope.row.id, scope.row.permission_name)">
+                            <i class="fas fa-trash"></i> 删除
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </el-card>
+    </div>
+
+    {% else %}
+    <el-empty description="暂无权限数据">
+        <el-button type="primary" @click="initPermissions">初始化默认权限</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 添加/编辑权限弹窗 -->
+<el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="500px" @close="resetForm">
+    <el-form :model="permissionForm" :rules="formRules" ref="permissionForm" label-width="100px">
+        <el-form-item label="权限名称" prop="permission_name">
+            <el-input v-model="permissionForm.permission_name" placeholder="请输入权限名称"></el-input>
+        </el-form-item>
+        
+        <el-form-item label="权限代码" prop="permission_code">
+            <el-input v-model="permissionForm.permission_code" placeholder="请输入权限代码，如：user.create"></el-input>
+        </el-form-item>
+        
+        <el-form-item label="所属模块" prop="module">
+            <el-select v-model="permissionForm.module" placeholder="请选择或输入模块名称" filterable allow-create style="width: 100%;">
+                <el-option v-for="module in moduleOptions" :key="module" :label="module" :value="module"></el-option>
+            </el-select>
+        </el-form-item>
+        
+        <el-form-item label="权限描述">
+            <el-input
+                type="textarea"
+                v-model="permissionForm.description"
+                placeholder="请输入权限描述"
+                :rows="3"
+                maxlength="200"
+                show-word-limit>
+            </el-input>
+        </el-form-item>
+        
+        <el-form-item label="权限状态">
+            <el-switch
+                v-model="permissionForm.is_active"
+                active-text="启用"
+                inactive-text="禁用">
+            </el-switch>
+        </el-form-item>
+    </el-form>
+    
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">
+            <span v-if="isEdit">更 新</span>
+                    <span v-else>添 加</span>
+        </el-button>
+    </div>
+</el-dialog>
+
+<!-- 删除确认弹窗 -->
+<el-dialog title="删除确认" :visible.sync="deleteDialogVisible" width="400px">
+    <div style="text-align: center;">
+        <i class="el-icon-warning" style="font-size: 48px; color: #E6A23C; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要删除权限 <strong>"{{ deletePermissionName }}"</strong> 吗？
+        </p>
+        <p style="color: #F56C6C; font-size: 14px;">
+            删除后相关角色将失去此权限，此操作不可恢复！
+        </p>
+    </div>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">取 消</el-button>
+        <el-button type="danger" @click="confirmDelete" :loading="deleting">确 定</el-button>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+.dialog-footer {
+    text-align: right;
+}
+
+.el-dialog__body {
+    padding: 20px;
+}
+
+code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+groupedPermissions: {
+    {% for module, permissions in grouped_permissions.items() %}
+    '{{ module }}': [
+        {% for permission in permissions %}
+        {
+            id: {{ permission.id }},
+            permission_name: '{{ permission.permission_name }}',
+            permission_code: '{{ permission.permission_code }}',
+            module: '{{ permission.module }}',
+            description: '{{ permission.description or "" }}',
+            is_active: {{ 'true' if permission.is_active else 'false' }},
+            created_at: '{{ permission.created_at.strftime('%Y-%m-%d %H:%M') }}'
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ]{% if not loop.last %},{% endif %}
+    {% endfor %}
+},
+moduleOptions: [
+    {% for module in grouped_permissions.keys() %}
+    '{{ module }}'{% if not loop.last %},{% endif %}
+    {% endfor %}
+],
+dialogVisible: false,
+deleteDialogVisible: false,
+dialogTitle: '添加权限',
+isEdit: false,
+submitting: false,
+deleting: false,
+deletePermissionId: null,
+deletePermissionName: '',
+permissionForm: {
+    id: null,
+    permission_name: '',
+    permission_code: '',
+    module: '',
+    description: '',
+    is_active: true
+},
+formRules: {
+    permission_name: [
+        { required: true, message: '请输入权限名称', trigger: 'blur' },
+        { min: 2, max: 50, message: '权限名称长度在 2 到 50 个字符', trigger: 'blur' }
+    ],
+    permission_code: [
+        { required: true, message: '请输入权限代码', trigger: 'blur' },
+        { pattern: /^[a-z_]+\.[a-z_]+$/, message: '权限代码格式：模块.操作，如：user.create', trigger: 'blur' }
+    ],
+    module: [
+        { required: true, message: '请选择或输入模块名称', trigger: 'change' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+// 显示添加权限弹窗
+showAddDialog() {
+    this.dialogTitle = '添加权限';
+    this.isEdit = false;
+    this.resetForm();
+    this.dialogVisible = true;
+},
+
+// 编辑权限
+editPermission(permissionId) {
+    this.dialogTitle = '编辑权限';
+    this.isEdit = true;
+    this.loadPermissionData(permissionId);
+    this.dialogVisible = true;
+},
+
+// 加载权限数据
+loadPermissionData(permissionId) {
+    // 从所有模块中查找权限
+    for (let module in this.groupedPermissions) {
+        const permission = this.groupedPermissions[module].find(p => p.id === permissionId);
+        if (permission) {
+            this.permissionForm = {
+                id: permission.id,
+                permission_name: permission.permission_name,
+                permission_code: permission.permission_code,
+                module: permission.module,
+                description: permission.description,
+                is_active: permission.is_active
+            };
+            break;
+        }
+    }
+},
+
+// 提交表单
+submitForm() {
+    this.$refs.permissionForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+            
+            const formData = new FormData();
+            Object.keys(this.permissionForm).forEach(key => {
+                if (key !== 'id') {
+                    formData.append(key, this.permissionForm[key]);
+                }
+            });
+            
+            const url = this.isEdit ? `/admin/api/permission/${this.permissionForm.id}/edit` : '/admin/api/permission/add';
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success(data.message);
+                    this.dialogVisible = false;
+                    this.refreshList();
+                } else {
+                    this.$message.error(data.message || '操作失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+// 切换权限状态
+togglePermissionStatus(permissionId, currentStatus) {
+    const action = currentStatus ? '禁用' : '启用';
+    this.$confirm(`此操作将${action}该权限, 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        fetch(`/admin/api/permission/${permissionId}/toggle`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.$message.success(data.message);
+                this.refreshList();
+            } else {
+                this.$message.error(data.message || '操作失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
+    }).catch(() => {
+        this.$message.info('已取消操作');
+    });
+},
+
+// 删除权限
+deletePermission(permissionId, permissionName) {
+    this.deletePermissionId = permissionId;
+    this.deletePermissionName = permissionName;
+    this.deleteDialogVisible = true;
+},
+
+// 确认删除
+confirmDelete() {
+    this.deleting = true;
+    
+    fetch(`/admin/api/permission/${this.deletePermissionId}/delete`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.deleteDialogVisible = false;
+            this.refreshList();
+        } else {
+            this.$message.error(data.message || '删除失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.deleting = false;
+    });
+},
+
+// 初始化权限
+initPermissions() {
+    this.$confirm('此操作将初始化默认权限, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        window.location.href = '{{ url_for('admin.init_permissions') }}';
+    }).catch(() => {
+        this.$message.info('已取消操作');
+    });
+},
+
+// 重置表单
+resetForm() {
+    this.permissionForm = {
+        id: null,
+        permission_name: '',
+        permission_code: '',
+        module: '',
+        description: '',
+        is_active: true
+    };
+    if (this.$refs.permissionForm) {
+        this.$refs.permissionForm.resetFields();
+    }
+},
+
+// 刷新列表
+refreshList() {
+    window.location.reload();
+}
+{% endblock %}

@@ -188,6 +188,122 @@
         </el-card>
     </el-col>
 </el-row>
+
+<!-- 订单详情弹窗 -->
+<el-dialog title="订单详情" :visible.sync="orderDetailVisible" width="800px">
+    <div v-if="currentOrder">
+        <el-row :gutter="20">
+            <el-col :span="12">
+                <el-card shadow="never">
+                    <div slot="header">
+                        <span><i class="fas fa-info-circle"></i> 基本信息</span>
+                    </div>
+                    <el-descriptions :column="1" border>
+                        <el-descriptions-item label="订单号">{{ "{{ currentOrder.id }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="客户姓名">{{ "{{ currentOrder.customer_name }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="联系电话">{{ "{{ currentOrder.customer_phone }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="订单状态">
+                            <el-tag :type="getStatusType(currentOrder.status)">
+                                {{ "{{ getStatusText(currentOrder.status) }}" }}
+                            </el-tag>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="订单金额">
+                            <span style="color: #F56C6C; font-weight: bold; font-size: 16px;">
+                                ¥{{ "{{ currentOrder.amount }}" }}
+                            </span>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="下单时间">{{ "{{ currentOrder.created_at }}" }}</el-descriptions-item>
+                    </el-descriptions>
+                </el-card>
+            </el-col>
+
+            <el-col :span="12">
+                <el-card shadow="never">
+                    <div slot="header">
+                        <span><i class="fas fa-shopping-bag"></i> 商品信息</span>
+                    </div>
+                    <div v-for="item in currentOrder.items" :key="item.id" style="margin-bottom: 15px; padding: 10px; border: 1px solid #EBEEF5; border-radius: 4px;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">
+                            {{ "{{ item.name }}" }} x {{ "{{ item.quantity }}" }}
+                        </div>
+                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">
+                            {{ "{{ item.specs }}" }}
+                        </div>
+                        <div style="color: #F56C6C; font-weight: bold;">
+                            ¥{{ "{{ item.subtotal }}" }}
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+        </el-row>
+
+        <div v-if="currentOrder.notes" style="margin-top: 20px;">
+            <el-card shadow="never">
+                <div slot="header">
+                    <span><i class="fas fa-comment"></i> 备注信息</span>
+                </div>
+                <p>{{ "{{ currentOrder.notes }}" }}</p>
+            </el-card>
+        </div>
+    </div>
+
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="orderDetailVisible = false">关 闭</el-button>
+        <el-button v-if="currentOrder && currentOrder.status === 'pending'"
+                  type="success"
+                  @click="showConfirmDialog">确认订单</el-button>
+        <el-button v-if="currentOrder && currentOrder.status === 'pending'"
+                  type="danger"
+                  @click="showRejectDialog">拒绝订单</el-button>
+        <el-button type="info"
+                  @click="printOrderDetail">打印订单</el-button>
+    </div>
+</el-dialog>
+
+<!-- 确认订单弹窗 -->
+<el-dialog title="确认订单" :visible.sync="confirmDialogVisible" width="400px">
+    <div style="text-align: center;">
+        <i class="el-icon-success" style="font-size: 48px; color: #67C23A; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要确认订单 <strong>#{{ "{{ confirmOrderId }}" }}</strong> 吗？
+        </p>
+        <p style="color: #909399; font-size: 14px;">
+            确认后订单状态将变为"已确认"，客户将收到通知
+        </p>
+    </div>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="confirmDialogVisible = false">取 消</el-button>
+        <el-button type="success" @click="doConfirmOrder" :loading="confirming">确 定</el-button>
+    </div>
+</el-dialog>
+
+<!-- 拒绝订单弹窗 -->
+<el-dialog title="拒绝订单" :visible.sync="rejectDialogVisible" width="500px">
+    <div style="text-align: center; margin-bottom: 20px;">
+        <i class="el-icon-warning" style="font-size: 48px; color: #E6A23C; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要拒绝订单 <strong>#{{ "{{ rejectOrderId }}" }}</strong> 吗？
+        </p>
+    </div>
+
+    <el-form :model="rejectForm" ref="rejectForm" label-width="80px">
+        <el-form-item label="拒绝原因" prop="reason">
+            <el-input
+                type="textarea"
+                v-model="rejectForm.reason"
+                placeholder="请输入拒绝原因"
+                :rows="3"
+                maxlength="200"
+                show-word-limit>
+            </el-input>
+        </el-form-item>
+    </el-form>
+
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="rejectDialogVisible = false">取 消</el-button>
+        <el-button type="danger" @click="doRejectOrder" :loading="rejecting">确 定</el-button>
+    </div>
+</el-dialog>
 {% endblock %}
 
 {% block vue_data %}
@@ -211,24 +327,40 @@ ordersData: [
                 id: {{ item.id }},
                 name: '{{ item.drink_product.name }}',
                 quantity: {{ item.quantity }},
-                specs: '{{ item.size or "" }}{% if item.temperature %} {{ item.temperature }}{% endif %}{% if item.sugar_level %} {{ item.sugar_level }}{% endif %}'
+                specs: '{{ item.size or "" }}{% if item.temperature %} {{ item.temperature }}{% endif %}{% if item.sugar_level %} {{ item.sugar_level }}{% endif %}',
+                subtotal: '{{ "%.2f"|format(item.subtotal) }}'
             }{% if not loop.last %},{% endif %}
             {% endfor %}
         ],
         amount: '{{ "%.2f"|format(order.total_amount) }}',
         status: '{{ order.status }}',
-        created_at: '{{ order.created_at.strftime("%m-%d %H:%M") }}'
+        created_at: '{{ order.created_at.strftime("%m-%d %H:%M") }}',
+        notes: '{{ order.notes or "" }}'
     }{% if not loop.last %},{% endif %}
     {% endfor %}
-]
+],
+// 弹窗相关数据
+orderDetailVisible: false,
+confirmDialogVisible: false,
+rejectDialogVisible: false,
+currentOrder: null,
+confirmOrderId: null,
+rejectOrderId: null,
+confirming: false,
+rejecting: false,
+rejectForm: {
+    reason: ''
+}
 {% endblock %}
 
 {% block vue_methods %}
+// 刷新订单列表
 refreshOrders() {
     this.refreshing = true;
     window.location.reload();
 },
 
+// 筛选订单
 filterOrders() {
     const params = new URLSearchParams();
     if (this.statusFilter !== 'all') {
@@ -238,83 +370,157 @@ filterOrders() {
         params.append('search', this.searchKeyword);
     }
     params.append('ui', 'element');
-    
+
     window.location.href = `{{ url_for('admin.orders') }}?${params.toString()}`;
 },
 
+// 搜索订单
 searchOrders() {
-    // 实时搜索可以在这里实现
     clearTimeout(this.searchTimeout);
     this.searchTimeout = setTimeout(() => {
         this.filterOrders();
     }, 500);
 },
 
+// 分页处理
 handlePageChange(page) {
     const params = new URLSearchParams(window.location.search);
     params.set('page', page);
     window.location.href = `{{ url_for('admin.orders') }}?${params.toString()}`;
 },
 
+// 查看订单详情
 viewOrder(orderId) {
-    window.location.href = `{{ url_for('admin.order_detail', order_id=0) }}`.replace('0', orderId);
+    // 通过API获取订单详情
+    fetch(`/admin/api/order/${orderId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.currentOrder = {
+                    id: data.order.id,
+                    customer_name: data.order.customer_name,
+                    customer_phone: data.order.customer_phone,
+                    status: data.order.status,
+                    amount: data.order.amount,
+                    created_at: data.order.created_at,
+                    notes: data.order.notes || '',
+                    items: data.order.items
+                };
+                this.orderDetailVisible = true;
+            } else {
+                this.$message.error('获取订单详情失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
 },
 
+// 显示确认订单弹窗
 confirmOrder(orderId) {
-    this.$confirm('确认接受此订单？', '确认操作', {
-        confirmButtonText: '确认',
-        cancelButtonText: '取消',
-        type: 'success'
-    }).then(() => {
-        this.updateOrderStatus(orderId, 'confirmed');
+    this.confirmOrderId = orderId;
+    this.confirmDialogVisible = true;
+},
+
+// 显示确认订单弹窗（从详情页）
+showConfirmDialog() {
+    this.confirmOrderId = this.currentOrder.id;
+    this.orderDetailVisible = false;
+    this.confirmDialogVisible = true;
+},
+
+// 执行确认订单
+doConfirmOrder() {
+    this.confirming = true;
+
+    fetch(`/admin/api/order/${this.confirmOrderId}/confirm`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.confirmDialogVisible = false;
+            this.refreshOrders();
+        } else {
+            this.$message.error(data.message || '确认失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.confirming = false;
     });
 },
 
+// 显示拒绝订单弹窗
 rejectOrder(orderId) {
-    this.$prompt('请输入拒绝原因', '拒绝订单', {
-        confirmButtonText: '确认',
-        cancelButtonText: '取消',
-        inputPattern: /.+/,
-        inputErrorMessage: '请输入拒绝原因'
-    }).then(({ value }) => {
-        this.updateOrderStatus(orderId, 'rejected', value);
-    });
+    this.rejectOrderId = orderId;
+    this.rejectForm.reason = '';
+    this.rejectDialogVisible = true;
 },
 
-updateOrderStatus(orderId, status, reason = '') {
-    this.loading = true;
-    
+// 显示拒绝订单弹窗（从详情页）
+showRejectDialog() {
+    this.rejectOrderId = this.currentOrder.id;
+    this.rejectForm.reason = '';
+    this.orderDetailVisible = false;
+    this.rejectDialogVisible = true;
+},
+
+// 执行拒绝订单
+doRejectOrder() {
+    if (!this.rejectForm.reason.trim()) {
+        this.$message.error('请输入拒绝原因');
+        return;
+    }
+
+    this.rejecting = true;
+
     const formData = new FormData();
-    formData.append('status', status);
-    if (reason) formData.append('reason', reason);
-    
-    fetch(`{{ url_for('admin.update_order_status', order_id=0) }}`.replace('0', orderId), {
+    formData.append('reason', this.rejectForm.reason);
+
+    fetch(`/admin/api/order/${this.rejectOrderId}/reject`, {
         method: 'POST',
         body: formData
-    }).then(response => {
-        if (response.ok) {
-            this.$message.success('订单状态更新成功');
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.rejectDialogVisible = false;
+            this.refreshOrders();
         } else {
-            this.$message.error('更新失败，请重试');
+            this.$message.error(data.message || '拒绝失败');
         }
-    }).catch(error => {
+    })
+    .catch(error => {
         this.$message.error('网络错误，请重试');
-    }).finally(() => {
-        this.loading = false;
+    })
+    .finally(() => {
+        this.rejecting = false;
     });
 },
 
+// 打印订单
 printOrder(orderId) {
     window.open(`{{ url_for('admin.print_order', order_id=0) }}`.replace('0', orderId), '_blank');
 },
 
+// 打印订单详情
+printOrderDetail() {
+    if (this.currentOrder) {
+        this.printOrder(this.currentOrder.id);
+    }
+},
+
+// 导出订单
 exportOrders() {
     this.$message.info('导出功能开发中...');
 },
 
+// 获取状态类型
 getStatusType(status) {
     const statusMap = {
         'pending': 'warning',
@@ -327,6 +533,7 @@ getStatusType(status) {
     return statusMap[status] || 'info';
 },
 
+// 获取状态文本
 getStatusText(status) {
     const statusMap = {
         'pending': '待确认',

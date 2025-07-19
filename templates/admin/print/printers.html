@@ -275,10 +275,10 @@
 {% block extra_js %}
 <script>
 function testPrinter(printerId) {
-    if (!confirm('确定要测试这台打印机吗？')) {
+    if (!confirm('此操作将测试该打印机, 是否继续?')) {
         return;
     }
-    
+
     // 发送测试打印请求
     fetch(`/admin/print/test/print?printer_id=${printerId}`, {
         method: 'POST',
@@ -289,15 +289,38 @@ function testPrinter(printerId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('测试打印命令已发送');
+            showAlert('success', '测试打印命令已发送');
         } else {
-            alert('测试失败: ' + data.message);
+            showAlert('danger', '测试失败: ' + data.message);
         }
     })
     .catch(error => {
         console.error('测试打印失败:', error);
-        alert('测试失败，请检查网络连接');
+        showAlert('danger', '测试失败，请检查网络连接');
     });
+}
+
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    // 在页面顶部显示提示
+    const container = document.querySelector('.container-fluid');
+    if (container) {
+        container.insertAdjacentHTML('afterbegin', alertHtml);
+    }
+
+    // 3秒后自动消失
+    setTimeout(() => {
+        const alert = document.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 3000);
 }
 
 // 自动刷新打印机状态

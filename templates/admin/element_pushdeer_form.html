@@ -1,0 +1,400 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}{{ action }}推送配置 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}pushdeer{% endblock %}
+
+{% block page_icon %}<i class="fas fa-bell"></i>{% endblock %}
+{% block page_title %}{{ action }}推送配置{% endblock %}
+
+{% block page_actions %}
+<el-button @click="goBack">
+    <i class="fas fa-arrow-left"></i> 返回列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <el-row :gutter="20">
+        <el-col :lg="16" :md="24">
+            <el-card>
+                <div slot="header" class="clearfix">
+                    <span style="font-weight: 600;">
+                        <i class="fas fa-edit"></i> {{ action }}推送配置
+                    </span>
+                </div>
+                
+                <el-form 
+                    :model="configForm" 
+                    :rules="formRules" 
+                    ref="configForm" 
+                    label-width="120px"
+                    @submit.native.prevent="submitForm">
+                    
+                    <el-form-item label="配置名称" prop="name">
+                        <el-input 
+                            v-model="configForm.name" 
+                            placeholder="请输入配置名称，如：管理员通知"
+                            maxlength="100"
+                            show-word-limit>
+                        </el-input>
+                    </el-form-item>
+                    
+                    <el-form-item label="PushKey" prop="pushkey">
+                        <el-input 
+                            v-model="configForm.pushkey" 
+                            placeholder="请输入PushDeer的PushKey"
+                            maxlength="200"
+                            show-word-limit>
+                            <template slot="prepend">
+                                <i class="fas fa-key"></i>
+                            </template>
+                        </el-input>
+                        <div class="form-tip">
+                            <i class="fas fa-info-circle"></i>
+                            在 <a href="https://pushdeer.com" target="_blank">PushDeer官网</a> 注册账号后获取PushKey
+                        </div>
+                    </el-form-item>
+                    
+                    <el-form-item label="推送端点" prop="endpoint">
+                        <el-input 
+                            v-model="configForm.endpoint" 
+                            placeholder="推送API端点地址">
+                            <template slot="prepend">
+                                <i class="fas fa-link"></i>
+                            </template>
+                        </el-input>
+                        <div class="form-tip">
+                            <i class="fas fa-info-circle"></i>
+                            默认使用官方API：https://api2.pushdeer.com/message/push
+                        </div>
+                    </el-form-item>
+                    
+                    <el-form-item label="配置描述">
+                        <el-input
+                            v-model="configForm.description"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="请输入配置描述，如：用于接收新订单通知"
+                            maxlength="500"
+                            show-word-limit>
+                        </el-input>
+                    </el-form-item>
+                    
+                    <el-form-item label="推送事件">
+                        <el-checkbox-group v-model="configForm.events">
+                            <el-checkbox label="new_order">新订单</el-checkbox>
+                            <el-checkbox label="order_confirmed">订单确认</el-checkbox>
+                            <el-checkbox label="order_completed">订单完成</el-checkbox>
+                            <el-checkbox label="order_cancelled">订单取消</el-checkbox>
+                            <el-checkbox label="payment_received">收到付款</el-checkbox>
+                            <el-checkbox label="refund_request">退款申请</el-checkbox>
+                        </el-checkbox-group>
+                        <div class="form-tip">
+                            <i class="fas fa-info-circle"></i>
+                            选择需要推送通知的事件类型
+                        </div>
+                    </el-form-item>
+                    
+                    <el-form-item label="配置状态">
+                        <el-switch
+                            v-model="configForm.is_active"
+                            active-text="启用"
+                            inactive-text="禁用">
+                        </el-switch>
+                        <span style="margin-left: 10px; color: #606266;">
+                            禁用后将不会发送推送通知
+                        </span>
+                    </el-form-item>
+                    
+                    <el-form-item>
+                        <el-button 
+                            type="primary" 
+                            @click="submitForm" 
+                            :loading="submitting"
+                            size="large">
+                            <i class="fas fa-save"></i> {{ action }}配置
+                        </el-button>
+                        <el-button 
+                            type="success" 
+                            @click="testPush" 
+                            :loading="testing"
+                            size="large"
+                            v-if="configForm.pushkey">
+                            <i class="fas fa-paper-plane"></i> 测试推送
+                        </el-button>
+                        <el-button @click="goBack" size="large">
+                            <i class="fas fa-times"></i> 取消
+                        </el-button>
+                    </el-form-item>
+                </el-form>
+            </el-card>
+        </el-col>
+        
+        <el-col :lg="8" :md="24">
+            <!-- 配置说明 -->
+            <el-card>
+                <div slot="header" class="clearfix">
+                    <span style="font-weight: 600;">
+                        <i class="fas fa-question-circle"></i> 配置说明
+                    </span>
+                </div>
+                
+                <div class="config-help">
+                    <h4>如何获取PushKey？</h4>
+                    <ol>
+                        <li>访问 <a href="https://pushdeer.com" target="_blank">PushDeer官网</a></li>
+                        <li>注册账号并登录</li>
+                        <li>在控制台创建应用</li>
+                        <li>复制生成的PushKey</li>
+                        <li>粘贴到上方输入框中</li>
+                    </ol>
+                    
+                    <h4>推送事件说明</h4>
+                    <ul>
+                        <li><strong>新订单：</strong>用户下单时推送</li>
+                        <li><strong>订单确认：</strong>管理员确认订单时推送</li>
+                        <li><strong>订单完成：</strong>订单完成时推送</li>
+                        <li><strong>订单取消：</strong>订单被取消时推送</li>
+                        <li><strong>收到付款：</strong>收到付款时推送</li>
+                        <li><strong>退款申请：</strong>用户申请退款时推送</li>
+                    </ul>
+                    
+                    <h4>注意事项</h4>
+                    <ul>
+                        <li>PushKey请妥善保管，不要泄露</li>
+                        <li>建议先测试推送确保配置正确</li>
+                        <li>可以创建多个配置用于不同场景</li>
+                        <li>禁用的配置不会发送推送</li>
+                    </ul>
+                </div>
+            </el-card>
+            
+            <!-- 推送预览 -->
+            <el-card style="margin-top: 20px;">
+                <div slot="header" class="clearfix">
+                    <span style="font-weight: 600;">
+                        <i class="fas fa-eye"></i> 推送预览
+                    </span>
+                </div>
+                
+                <div class="push-preview">
+                    <div class="preview-item">
+                        <div class="preview-title">🆕 新订单通知</div>
+                        <div class="preview-content">
+                            订单 #12345 已提交<br>
+                            客户：张三<br>
+                            金额：¥25.80<br>
+                            时间：{{ "{{ new Date().toLocaleString() }}" }}
+                        </div>
+                    </div>
+                    
+                    <div class="preview-item">
+                        <div class="preview-title">✅ 订单确认通知</div>
+                        <div class="preview-content">
+                            订单 #12345 已确认<br>
+                            预计完成时间：15分钟<br>
+                            请及时制作饮品
+                        </div>
+                    </div>
+                </div>
+            </el-card>
+        </el-col>
+    </el-row>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.form-tip {
+    margin-top: 5px;
+    color: #909399;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+}
+
+.form-tip i {
+    margin-right: 5px;
+}
+
+.form-tip a {
+    color: #409EFF;
+    text-decoration: none;
+}
+
+.form-tip a:hover {
+    text-decoration: underline;
+}
+
+.config-help {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.config-help h4 {
+    color: #303133;
+    margin: 15px 0 10px 0;
+    font-size: 14px;
+}
+
+.config-help h4:first-child {
+    margin-top: 0;
+}
+
+.config-help ol, .config-help ul {
+    margin: 0 0 15px 0;
+    padding-left: 20px;
+}
+
+.config-help li {
+    margin-bottom: 5px;
+    color: #606266;
+}
+
+.config-help a {
+    color: #409EFF;
+    text-decoration: none;
+}
+
+.config-help a:hover {
+    text-decoration: underline;
+}
+
+.push-preview {
+    font-size: 14px;
+}
+
+.preview-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-left: 4px solid #409EFF;
+}
+
+.preview-item:last-child {
+    margin-bottom: 0;
+}
+
+.preview-title {
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 8px;
+}
+
+.preview-content {
+    color: #606266;
+    line-height: 1.5;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+configForm: {
+    name: {{ (config.name if config else "")|tojson }},
+    pushkey: {{ (config.pushkey if config else "")|tojson }},
+    endpoint: {{ (config.endpoint if config else "https://api2.pushdeer.com/message/push")|tojson }},
+    description: {{ (config.description if config else "")|tojson }},
+    events: {{ (config.events.split(',') if config and config.events else ["new_order", "order_confirmed"])|tojson }},
+    is_active: {{ 'true' if config and config.is_active else 'true' }}
+},
+submitting: false,
+testing: false,
+formRules: {
+    name: [
+        { required: true, message: '请输入配置名称', trigger: 'blur' },
+        { min: 1, max: 100, message: '配置名称长度在 1 到 100 个字符', trigger: 'blur' }
+    ],
+    pushkey: [
+        { required: true, message: '请输入PushKey', trigger: 'blur' },
+        { min: 10, max: 200, message: 'PushKey长度在 10 到 200 个字符', trigger: 'blur' }
+    ],
+    endpoint: [
+        { required: true, message: '请输入推送端点', trigger: 'blur' },
+        { type: 'url', message: '请输入正确的URL格式', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+submitForm() {
+    this.$refs.configForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+            
+            const formData = new FormData();
+            Object.keys(this.configForm).forEach(key => {
+                if (key === 'events') {
+                    formData.append(key, this.configForm[key].join(','));
+                } else {
+                    formData.append(key, this.configForm[key]);
+                }
+            });
+            
+            const url = {{ ('"/admin/pushdeer/" + config.id|string + "/edit"' if config else '"/admin/pushdeer/add"')|safe }};
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success('{{ action }}配置成功！');
+                    setTimeout(() => {
+                        window.location.href = '/admin/pushdeer';
+                    }, 1000);
+                } else {
+                    this.$message.error(data.message || '{{ action }}配置失败');
+                }
+            }).catch(error => {
+                this.$message.error('网络错误，请重试');
+            }).finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+async testPush() {
+    if (!this.configForm.pushkey) {
+        this.$message.warning('请先输入PushKey');
+        return;
+    }
+    
+    this.testing = true;
+    
+    try {
+        const response = await fetch('/admin/pushdeer/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                pushkey: this.configForm.pushkey,
+                endpoint: this.configForm.endpoint
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            this.$message.success('测试推送发送成功！请检查您的设备');
+        } else {
+            this.$message.error(result.message || '测试推送失败');
+        }
+    } catch (error) {
+        this.$message.error('网络错误，请重试');
+    } finally {
+        this.testing = false;
+    }
+},
+
+goBack() {
+    window.location.href = '/admin/pushdeer';
+}
+{% endblock %}

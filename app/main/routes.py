@@ -40,26 +40,25 @@ def index():
         )
     ).order_by(Announcement.priority.desc(), Announcement.created_at.desc()).limit(3).all()
 
-    # 检查是否使用Element UI版本
-    use_element = request.args.get('ui') == 'element'
-
-    if use_element:
-        return render_template('element_index.html',
-                             drink_products=drink_products,
-                             categories=categories,
-                             current_category=category_filter,
-                             announcements=announcements)
-    else:
-        return render_template('index.html',
-                             drink_products=drink_products,
-                             categories=categories,
-                             current_category=category_filter,
-                             announcements=announcements)
+    return render_template('element_index.html',
+                         drink_products=drink_products,
+                         categories=categories,
+                         current_category=category_filter,
+                         announcements=announcements)
 
 @bp.route('/user_info', methods=['GET', 'POST'])
 def user_info():
     """用户信息页面 - 简化版，只需要用户名和电话"""
     form = UserInfoForm()
+
+    # 获取产品信息（如果有product_id参数）
+    product = None
+    product_id = request.args.get('product_id')
+    if product_id:
+        try:
+            product = DrinkProduct.query.get(int(product_id))
+        except (ValueError, TypeError):
+            pass
     if form.validate_on_submit():
         # 检查用户是否已存在（通过电话号码）
         user = User.query.filter_by(phone=form.phone.data).first()
@@ -83,9 +82,51 @@ def user_info():
         session['phone'] = user.phone
 
         flash(f'欢迎 {user.username}！', 'success')
+
+        # 检查是否有产品ID参数，如果有则直接下单
+        product_id = request.form.get('product_id') or request.args.get('product_id')
+        if product_id:
+            try:
+                quantity = form.quantity.data if hasattr(form, 'quantity') and form.quantity.data else 1
+                # 检查是否使用Element UI样式
+                use_element = request.args.get('style') == 'element'
+                if use_element:
+                    session['use_element_ui'] = True
+                return redirect(url_for('main.quick_order_with_quantity', product_id=int(product_id), quantity=quantity))
+            except (ValueError, TypeError):
+                pass
+
         return redirect(url_for('main.order'))
 
-    return render_template('user_info.html', form=form)
+    # 获取当前用户信息
+    user = None
+    user_stats = {
+        'total_orders': 0,
+        'total_spent': 0.0,
+        'completed_orders': 0,
+        'favorite_product': None
+    }
+
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        if user:
+            # 计算用户统计信息
+            user_orders = Order.query.filter_by(user_id=user.id).all()
+            user_stats['total_orders'] = len(user_orders)
+            user_stats['completed_orders'] = len([o for o in user_orders if o.status == 'completed'])
+            user_stats['total_spent'] = sum(o.total_amount for o in user_orders if o.status in ['completed', 'confirmed'])
+
+            # 获取最喜欢的产品（简单统计）
+            if user_orders:
+                from collections import Counter
+                product_counts = Counter()
+                for order in user_orders:
+                    for item in order.items:
+                        product_counts[item.product_name] += item.quantity
+                if product_counts:
+                    user_stats['favorite_product'] = product_counts.most_common(1)[0][0]
+
+    return render_template('element_user_info.html', form=form, product=product, user=user, user_stats=user_stats)
 
 @bp.route('/order', methods=['GET', 'POST'])
 def order():
@@ -98,6 +139,14 @@ def order():
     # 填充饮品产品选择项
     drink_products = DrinkProduct.query.filter_by(is_active=True).all()
     form.drink_product_id.choices = [(p.id, f"{p.name} - ¥{p.price}") for p in drink_products]
+
+    # 如果从首页传来了产品ID，预选该产品
+    product_id = request.args.get('product_id')
+    if product_id and not form.is_submitted():
+        try:
+            form.drink_product_id.data = int(product_id)
+        except (ValueError, TypeError):
+            pass
 
     if form.validate_on_submit():
         user_id = session['user_id']
@@ -136,60 +185,106 @@ def order():
             flash(f'订单提交成功！订单号：{order.id}', 'success')
             return redirect(url_for('main.order_success', order_id=order.id))
 
-    return render_template('order.html', form=form, drink_products=drink_products)
+    return render_template('element_order.html', form=form, drink_products=drink_products)
+
+@bp.route('/quick_order/<int:product_id>')
+def quick_order(product_id):
+    """快速下单 - 直接为指定产品创建订单（默认数量1）"""
+    return quick_order_with_quantity(product_id, 1)
+
+@bp.route('/quick_order/<int:product_id>/<int:quantity>')
+def quick_order_with_quantity(product_id, quantity=1):
+    """快速下单 - 直接为指定产品创建订单，支持指定数量"""
+    if 'user_id' not in session:
+        # 未登录用户，跳转到用户信息页面并传递产品ID
+        return redirect(url_for('main.user_info', product_id=product_id))
+
+    # 验证数量范围
+    if quantity < 1 or quantity > 20:
+        flash('数量必须在1-20之间', 'error')
+        return redirect(url_for('main.index'))
+
+    # 获取产品信息
+    drink_product = DrinkProduct.query.get_or_404(product_id)
+    user_id = session['user_id']
+
+    # 计算总价
+    total_amount = drink_product.price * quantity
+
+    # 创建订单
+    order = Order(
+        user_id=user_id,
+        total_amount=total_amount,
+        notes=f'快速下单 - {drink_product.name} x{quantity}'
+    )
+    db.session.add(order)
+    db.session.flush()  # 获取订单ID
+
+    # 创建订单项
+    order_item = OrderItem(
+        order_id=order.id,
+        drink_product_id=drink_product.id,
+        quantity=quantity,
+        unit_price=drink_product.price,
+        subtotal=total_amount,
+        size=None,
+        temperature='normal',  # 默认常温
+        notes=''
+    )
+    db.session.add(order_item)
+    db.session.commit()
+
+    # 发送新订单推送通知
+    try:
+        pushdeer_service.send_order_notification(order, 'new_order')
+    except Exception as e:
+        print(f"推送通知失败: {e}")
+
+    flash(f'订单创建成功！订单号：{order.id}，数量：{quantity}份', 'success')
+    # 直接跳转到支付页面
+    return redirect(url_for('main.payment', order_id=order.id))
 
 @bp.route('/order_success/<int:order_id>')
 def order_success(order_id):
     """订单成功页面"""
     order = Order.query.get_or_404(order_id)
-    return render_template('order_success.html', order=order)
+    return render_template('element_order_success.html', order=order)
 
 @bp.route('/payment/<int:order_id>')
 def payment(order_id):
     """支付页面"""
     order = Order.query.get_or_404(order_id)
 
+    # 检查订单状态
+    if order.status not in ['pending', 'confirmed']:
+        flash('订单状态不允许支付', 'error')
+        return redirect(url_for('main.order_detail', order_id=order_id))
+
+    # 获取用户信息
+    user = User.query.get_or_404(order.user_id)
+
     # 获取支付配置
     from app.models import PaymentConfig
     payment_configs = PaymentConfig.get_active_payments()
 
-    # 检查是否使用Element UI版本
-    use_element = request.args.get('ui') == 'element'
-
-    if use_element:
-        return render_template('element_payment.html', order=order, payment_configs=payment_configs)
-    else:
-        return render_template('payment.html', order=order, payment_configs=payment_configs)
+    return render_template('element_payment.html', order=order, user=user, payment_configs=payment_configs)
 
 @bp.route('/confirm_payment/<int:order_id>', methods=['POST'])
 def confirm_payment(order_id):
-    """确认支付并直接确认订单"""
+    """确认支付"""
     order = Order.query.get_or_404(order_id)
 
     try:
         data = request.get_json()
         if data and data.get('confirmed'):
-            # 直接更新订单状态为已确认（跳过支付状态检查）
-            order.status = 'confirmed'
+            # 更新订单状态为已支付
+            order.status = 'paid'
             order.payment_time = datetime.now()
-            order.confirmed_at = datetime.now()
-            order.confirmed_by = 'customer'
-
-            # 更新用户统计信息
-            order.user.update_order_stats()
-
             db.session.commit()
-
-            # 发送推送通知
-            try:
-                from app.services.pushdeer_service import pushdeer_service
-                pushdeer_service.send_order_notification(order, 'order_confirmed')
-            except Exception as e:
-                print(f"推送通知失败: {e}")
 
             return jsonify({
                 'success': True,
-                'message': '订单确认成功'
+                'message': '支付确认成功'
             })
         else:
             return jsonify({
@@ -212,18 +307,18 @@ def my_orders():
     phone = request.args.get('phone', '').strip()
 
     if not phone:
-        return render_template('my_orders.html', orders=[], phone='', show_form=True)
+        return render_template('element_my_orders.html', orders=[], phone='', show_form=True)
 
     # 根据手机号查找用户
     user = User.query.filter_by(phone=phone).first()
     if not user:
         flash('未找到该手机号的订单记录', 'warning')
-        return render_template('my_orders.html', orders=[], phone=phone, show_form=True)
+        return render_template('element_my_orders.html', orders=[], phone=phone, show_form=True)
 
     # 获取用户的所有订单
     orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
 
-    return render_template('my_orders.html', orders=orders, phone=phone, user=user, show_form=False)
+    return render_template('element_my_orders.html', orders=orders, phone=phone, user=user, show_form=False)
 
 @bp.route('/quick_order_check', methods=['GET', 'POST'])
 def quick_order_check():
@@ -235,13 +330,16 @@ def quick_order_check():
         else:
             flash('请输入手机号', 'warning')
 
-    return render_template('quick_order_check.html')
+    return render_template('element_quick_order_check.html')
 
 @bp.route('/order/<int:order_id>')
 def order_detail(order_id):
     """订单详情页面"""
     order = Order.query.get_or_404(order_id)
-    return render_template('order_detail.html', order=order)
+    user = User.query.get_or_404(order.user_id)
+
+    # 检查是否使用Element UI样式
+    return render_template('element_order_detail.html', order=order, user=user)
 
 @bp.route('/order/<int:order_id>/refund', methods=['GET', 'POST'])
 def refund_order(order_id):
@@ -257,19 +355,19 @@ def refund_order(order_id):
         refund_reason = request.form.get('refund_reason', '').strip()
         if not refund_reason:
             flash('请填写退款原因', 'error')
-            return render_template('refund_order.html', order=order)
+            return render_template('element_refund_order.html', order=order)
 
         # 检查是否需要上传二维码
         if order.needs_refund_approval:
             # 已支付订单需要上传收款二维码
             if 'refund_qr_code' not in request.files:
                 flash('请上传收款二维码', 'error')
-                return render_template('refund_order.html', order=order)
+                return render_template('element_refund_order.html', order=order)
 
             file = request.files['refund_qr_code']
             if file.filename == '':
                 flash('请选择收款二维码文件', 'error')
-                return render_template('refund_order.html', order=order)
+                return render_template('element_refund_order.html', order=order)
 
             if file and allowed_file(file.filename):
                 # 保存二维码文件
@@ -290,7 +388,7 @@ def refund_order(order_id):
                 flash('退款申请已提交，请等待管理员审核', 'info')
             else:
                 flash('请上传有效的图片文件（jpg, jpeg, png, gif）', 'error')
-                return render_template('refund_order.html', order=order)
+                return render_template('element_refund_order.html', order=order)
         else:
             # 待确认订单可以直接退款
             order.status = 'refunded'
@@ -312,7 +410,8 @@ def refund_order(order_id):
 
         return redirect(url_for('main.order_detail', order_id=order_id))
 
-    return render_template('refund_order_new.html', order=order)
+    # 检查是否使用Element UI样式
+    return render_template('element_refund_order.html', order=order, user=user)
 
 @bp.route('/test_upload')
 def test_upload():
@@ -389,7 +488,7 @@ def test_refund_page():
     db.session.add(order_item)
     db.session.commit()
 
-    return render_template('refund_order_new.html', order=order)
+    return render_template('element_refund_order.html', order=order)
 
 @bp.route('/create_test_paid_order')
 def create_test_paid_order():
@@ -458,14 +557,14 @@ def cancel_order(order_id):
         cancel_reason = request.form.get('cancel_reason', '').strip()
         if not cancel_reason:
             flash('请填写取消原因', 'error')
-            return render_template('cancel_order.html', order=order)
+            return render_template('element_cancel_order.html', order=order)
 
         # 检查是否需要上传收款二维码
         if order.needs_cancel_qr_code:
             cancel_qr_code = request.files.get('cancel_qr_code')
             if not cancel_qr_code or cancel_qr_code.filename == '':
                 flash('已付款订单取消需要上传收款二维码', 'error')
-                return render_template('cancel_order.html', order=order)
+                return render_template('element_cancel_order.html', order=order)
 
         # 获取当前用户（如果有登录）
         user_id = session.get('user_id')
@@ -480,7 +579,7 @@ def cancel_order(order_id):
                     # 验证文件类型
                     if not allowed_file(cancel_qr_code.filename):
                         flash('请上传有效的图片文件（JPG、PNG、GIF）', 'error')
-                        return render_template('cancel_order.html', order=order)
+                        return render_template('element_cancel_order.html', order=order)
 
                     # 保存文件
                     filename = secure_filename(cancel_qr_code.filename)
@@ -509,7 +608,7 @@ def cancel_order(order_id):
 
                 flash('订单已成功取消', 'success')
             else:
-                # 已确认状态需要管理员审批
+                # 已确认/已支付状态需要管理员审批
                 order.status = 'cancel_pending'
                 order.cancel_reason = cancel_reason
                 order.cancelled_by = user.username if user else 'guest'
@@ -530,9 +629,11 @@ def cancel_order(order_id):
         except Exception as e:
             db.session.rollback()
             flash('取消订单失败，请重试', 'error')
-            return render_template('cancel_order.html', order=order)
+            # 检查是否使用Element UI样式
+            return render_template('element_cancel_order.html', order=order, user=user)
 
-    return render_template('cancel_order.html', order=order)
+    # 检查是否使用Element UI样式
+    return render_template('element_cancel_order.html', order=order, user=user)
 
 @bp.route('/api/drink_product/<int:product_id>')
 def get_drink_product(product_id):

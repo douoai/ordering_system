@@ -131,7 +131,8 @@
         <el-table-column prop="show_on_homepage" label="首页显示" width="100">
             <template slot-scope="scope">
                 <el-tag :type="scope.row.show_on_homepage ? 'success' : 'info'" size="small">
-                    {{ "{{ scope.row.show_on_homepage ? '是' : '否' }}" }}
+                    <span v-if="scope.row.show_on_homepage">是</span>
+                    <span v-else>否</span>
                 </el-tag>
             </template>
         </el-table-column>
@@ -156,7 +157,8 @@
                         :icon="scope.row.is_active ? 'el-icon-video-pause' : 'el-icon-video-play'"
                         size="mini" 
                         @click="toggleAnnouncement(scope.row)">
-                        {{ "{{ scope.row.is_active ? '禁用' : '启用' }}" }}
+                        <span v-if="scope.row.is_active">禁用</span>
+                    <span v-else>启用</span>
                     </el-button>
                     <el-button type="danger" icon="el-icon-delete" size="mini" @click="deleteAnnouncement(scope.row)">
                         删除
@@ -250,22 +252,40 @@ editAnnouncement(id) {
 
 toggleAnnouncement(row) {
     const action = row.is_active ? '禁用' : '启用';
-    this.$confirm(`确认${action}此公告？`, '提示', {
+    this.$confirm(`此操作将${action}该公告, 是否继续?`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
     }).then(() => {
+        this.$message({
+            type: 'success',
+            message: '操作成功!'
+        });
         window.location.href = `/admin/announcements/toggle/${row.id}`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
     });
 },
 
 deleteAnnouncement(row) {
-    this.$confirm('确认删除此公告？此操作不可恢复！', '警告', {
+    this.$confirm('此操作将永久删除该公告, 是否继续?', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'error'
+        type: 'warning'
     }).then(() => {
+        this.$message({
+            type: 'success',
+            message: '删除成功!'
+        });
         window.location.href = `/admin/announcements/delete/${row.id}`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消删除'
+        });
     });
 },
 
@@ -312,5 +332,4 @@ formatTime(dateStr) {
     const date = new Date(dateStr);
     return date.toLocaleTimeString('zh-CN', { hour12: false });
 }
-{% endblock %}
 {% endblock %}

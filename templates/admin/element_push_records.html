@@ -1,0 +1,271 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}推送记录 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}push_records{% endblock %}
+
+{% block page_icon %}<i class="fas fa-history"></i>{% endblock %}
+{% block page_title %}推送记录{% endblock %}
+
+{% block page_actions %}
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 筛选条件 -->
+<el-card style="margin-bottom: 20px;">
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-filter"></i> 筛选条件
+        </span>
+    </div>
+    
+    <el-form :inline="true" :model="filterForm" class="filter-form">
+        <el-form-item label="推送状态">
+            <el-select v-model="filterForm.status" placeholder="选择状态" clearable style="width: 120px;">
+                <el-option label="成功" value="success"></el-option>
+                <el-option label="失败" value="failed"></el-option>
+            </el-select>
+        </el-form-item>
+        <el-form-item label="事件类型">
+            <el-select v-model="filterForm.event" placeholder="选择事件" clearable style="width: 150px;">
+                <el-option label="新订单" value="new_order"></el-option>
+                <el-option label="订单确认" value="order_confirmed"></el-option>
+                <el-option label="订单取消" value="order_cancelled"></el-option>
+                <el-option label="订单退款" value="order_refunded"></el-option>
+            </el-select>
+        </el-form-item>
+        <el-form-item label="推送配置">
+            <el-select v-model="filterForm.config" placeholder="选择配置" clearable style="width: 150px;">
+                {% for config in configs %}
+                <el-option label="{{ config.name }}" value="{{ config.id }}"></el-option>
+                {% endfor %}
+            </el-select>
+        </el-form-item>
+        <el-form-item>
+            <el-button type="primary" @click="applyFilter">筛选</el-button>
+            <el-button @click="clearFilter">清空</el-button>
+        </el-form-item>
+    </el-form>
+</el-card>
+
+<!-- 推送记录列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 推送记录列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ records.total }} 条记录</el-tag>
+        </div>
+    </div>
+
+    {% if records.items %}
+    <el-table :data="recordsData" style="width: 100%" stripe>
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="config_name" label="配置名称" width="120">
+            <template slot-scope="scope">
+                <el-tag type="primary" size="small">{{ "{{ scope.row.config_name }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="event_type" label="事件类型" width="120">
+            <template slot-scope="scope">
+                <el-tag :type="getEventTagType(scope.row.event_type)" size="small">
+                    {{ "{{ getEventTypeText(scope.row.event_type) }}" }}
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="title" label="推送标题" min-width="200">
+            <template slot-scope="scope">
+                <span style="font-weight: 600;">{{ "{{ scope.row.title }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="content" label="推送内容" min-width="250">
+            <template slot-scope="scope">
+                <span style="color: #606266;">{{ "{{ scope.row.content }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.status === 'success' ? 'success' : 'danger'" size="small">
+                    <span v-if="scope.row.status === 'success'">成功</span>
+                    <span v-else>失败</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="推送时间" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="viewRecord(scope.row.id)">
+                    查看详情
+                </el-button>
+                <el-button type="text" size="small" 
+                           style="color: #F56C6C;" 
+                           @click="deleteRecord(scope.row.id)">
+                    删除
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    {% if records.pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        <el-pagination
+            @current-change="handlePageChange"
+            :current-page="{{ records.page }}"
+            :page-size="{{ records.per_page }}"
+            :total="{{ records.total }}"
+            layout="prev, pager, next, jumper, total">
+        </el-pagination>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <el-empty description="暂无推送记录">
+        <p>还没有推送记录</p>
+    </el-empty>
+    {% endif %}
+</el-card>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+.filter-form {
+    margin-bottom: 0;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+filterForm: {
+    status: {{ status_filter|tojson }},
+    event: {{ event_filter|tojson }},
+    config: {{ config_filter|tojson }}
+},
+recordsData: [
+    {% if records.items %}
+    {% for record in records.items %}
+    {
+        id: {{ record.id }},
+        config_name: {{ (record.config.name if record.config else "已删除")|tojson }},
+        event_type: {{ record.event_type|tojson }},
+        title: {{ record.title|tojson }},
+        content: {{ (record.content[:50] + "..." if record.content|length > 50 else record.content)|tojson }},
+        status: {{ record.status|tojson }},
+        created_at: {{ record.created_at.strftime('%Y-%m-%d %H:%M')|tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+applyFilter() {
+    const params = new URLSearchParams();
+    if (this.filterForm.status) params.append('status', this.filterForm.status);
+    if (this.filterForm.event) params.append('event', this.filterForm.event);
+    if (this.filterForm.config) params.append('config', this.filterForm.config);
+    
+    const queryString = params.toString();
+    const url = queryString ? `{{ url_for('admin.push_records') }}?${queryString}` : '{{ url_for('admin.push_records') }}';
+    window.location.href = url;
+},
+
+clearFilter() {
+    this.filterForm = {
+        status: '',
+        event: '',
+        config: ''
+    };
+    window.location.href = '{{ url_for('admin.push_records') }}';
+},
+
+viewRecord(recordId) {
+    window.location.href = `/admin/push_records/${recordId}`;
+},
+
+deleteRecord(recordId) {
+    this.$confirm('此操作将永久删除该推送记录, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        this.$message({
+            type: 'success',
+            message: '删除成功!'
+        });
+        // 提交删除表单
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/push_records/${recordId}/delete`;
+        document.body.appendChild(form);
+        form.submit();
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消删除'
+        });
+    });
+},
+
+handlePageChange(page) {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    if (this.filterForm.status) params.append('status', this.filterForm.status);
+    if (this.filterForm.event) params.append('event', this.filterForm.event);
+    if (this.filterForm.config) params.append('config', this.filterForm.config);
+    
+    window.location.href = `{{ url_for('admin.push_records') }}?${params.toString()}`;
+},
+
+refreshList() {
+    this.$message.success('正在刷新列表...');
+    window.location.reload();
+},
+
+getEventTagType(eventType) {
+    const typeMap = {
+        'new_order': 'primary',
+        'order_confirmed': 'success',
+        'order_cancelled': 'danger',
+        'order_refunded': 'warning',
+        'test': 'info'
+    };
+    return typeMap[eventType] || 'info';
+},
+
+getEventTypeText(eventType) {
+    const typeMap = {
+        'new_order': '新订单',
+        'order_confirmed': '订单确认',
+        'order_cancelled': '订单取消',
+        'order_refunded': '订单退款',
+        'test': '测试推送'
+    };
+    return typeMap[eventType] || eventType;
+}
+{% endblock %}

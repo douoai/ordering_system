@@ -1,5 +1,6 @@
 from flask import Flask
 from config import Config
+import secrets
 
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
@@ -31,5 +32,10 @@ def create_app():
         except:
             # 如果数据库还没有菜单配置表，返回默认菜单
             return []
+
+    @app.template_global()
+    def csrf_token():
+        """生成CSRF token"""
+        return secrets.token_hex(16)
 
     return app

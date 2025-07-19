@@ -1,0 +1,558 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}客户管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}customers{% endblock %}
+
+{% block page_icon %}<i class="fas fa-users"></i>{% endblock %}
+{% block page_title %}客户管理{% endblock %}
+
+{% block page_actions %}
+<el-input
+    placeholder="搜索客户姓名、邮箱或手机号"
+    v-model="searchText"
+    @keyup.enter.native="searchCustomers"
+    style="width: 300px; margin-right: 10px;">
+    <el-button slot="append" icon="el-icon-search" @click="searchCustomers"></el-button>
+</el-input>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 客户列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 客户列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ customers.total }} 位客户</el-tag>
+        </div>
+    </div>
+
+    {% if customers.items %}
+    <el-table :data="customersData" style="width: 100%" stripe>
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="username" label="用户名" min-width="120">
+            <template slot-scope="scope">
+                <el-tag type="primary" size="small">{{ "{{ scope.row.username }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="email" label="邮箱" min-width="180">
+            <template slot-scope="scope">
+                <span style="color: #606266;">{{ "{{ scope.row.email || '未设置' }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="phone" label="手机号" width="130">
+            <template slot-scope="scope">
+                <span style="color: #606266;">{{ "{{ scope.row.phone || '未设置' }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="order_count" label="订单数" width="100">
+            <template slot-scope="scope">
+                <el-tag type="success" size="small">{{ "{{ scope.row.order_count }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="total_spent" label="消费金额" width="120">
+            <template slot-scope="scope">
+                <span style="color: #F56C6C; font-weight: bold;">¥{{ "{{ scope.row.total_spent }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="last_order_date" label="最后下单" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.last_order_date || '从未下单' }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="注册时间" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="viewCustomer(scope.row.id)">
+                    <i class="fas fa-eye"></i> 查看详情
+                </el-button>
+                <el-button type="text" size="small" @click="editCustomer(scope.row.id)">
+                    <i class="fas fa-edit"></i> 编辑
+                </el-button>
+                <el-button type="text" size="small"
+                           style="color: #F56C6C;"
+                           @click="deleteCustomer(scope.row.id, scope.row.username)">
+                    <i class="fas fa-trash"></i> 删除
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    {% if customers.pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        <el-pagination
+            @current-change="handlePageChange"
+            :current-page="{{ customers.page }}"
+            :page-size="{{ customers.per_page }}"
+            :total="{{ customers.total }}"
+            layout="prev, pager, next, jumper, total">
+        </el-pagination>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <el-empty description="暂无客户数据">
+        <p>还没有客户注册</p>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 客户详情弹窗 -->
+<el-dialog title="客户详情" :visible.sync="customerDetailVisible" width="800px">
+    <div v-if="currentCustomer">
+        <el-row :gutter="20">
+            <el-col :span="12">
+                <el-card shadow="never">
+                    <div slot="header">
+                        <span><i class="fas fa-user"></i> 基本信息</span>
+                    </div>
+                    <el-descriptions :column="1" border>
+                        <el-descriptions-item label="客户ID">{{ "{{ currentCustomer.id }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="用户名">{{ "{{ currentCustomer.username }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="邮箱">{{ "{{ currentCustomer.email || '未设置' }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="手机号">{{ "{{ currentCustomer.phone || '未设置' }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="注册时间">{{ "{{ currentCustomer.created_at }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="最后登录">{{ "{{ currentCustomer.last_login || '从未登录' }}" }}</el-descriptions-item>
+                    </el-descriptions>
+                </el-card>
+            </el-col>
+
+            <el-col :span="12">
+                <el-card shadow="never">
+                    <div slot="header">
+                        <span><i class="fas fa-chart-bar"></i> 消费统计</span>
+                    </div>
+                    <el-descriptions :column="1" border>
+                        <el-descriptions-item label="订单总数">
+                            <el-tag type="success">{{ "{{ currentCustomer.order_count }}" }} 单</el-tag>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="消费总额">
+                            <span style="color: #F56C6C; font-weight: bold; font-size: 16px;">
+                                ¥{{ "{{ currentCustomer.total_spent }}" }}
+                            </span>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="平均订单金额">
+                            <span style="color: #409EFF; font-weight: bold;">
+                                ¥{{ "{{ currentCustomer.avg_order_amount }}" }}
+                            </span>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="最后下单时间">{{ "{{ currentCustomer.last_order_date || '从未下单' }}" }}</el-descriptions-item>
+                        <el-descriptions-item label="客户等级">
+                            <el-tag :type="getCustomerLevelType(currentCustomer.level)">
+                                {{ "{{ getCustomerLevelText(currentCustomer.level) }}" }}
+                            </el-tag>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </el-card>
+            </el-col>
+        </el-row>
+
+        <div style="margin-top: 20px;">
+            <el-card shadow="never">
+                <div slot="header">
+                    <span><i class="fas fa-shopping-cart"></i> 最近订单</span>
+                </div>
+                <el-table :data="currentCustomer.recent_orders" style="width: 100%">
+                    <el-table-column prop="id" label="订单号" width="100"></el-table-column>
+                    <el-table-column prop="amount" label="金额" width="100">
+                        <template slot-scope="scope">
+                            <span style="color: #F56C6C; font-weight: bold;">¥{{ "{{ scope.row.amount }}" }}</span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="status" label="状态" width="100">
+                        <template slot-scope="scope">
+                            <el-tag :type="getOrderStatusType(scope.row.status)" size="small">
+                                {{ "{{ getOrderStatusText(scope.row.status) }}" }}
+                            </el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="created_at" label="下单时间" width="150"></el-table-column>
+                    <el-table-column label="操作" width="100">
+                        <template slot-scope="scope">
+                            <el-button type="text" size="small" @click="viewOrder(scope.row.id)">
+                                查看订单
+                            </el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-card>
+        </div>
+    </div>
+
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="customerDetailVisible = false">关 闭</el-button>
+        <el-button type="primary" @click="editCustomerFromDetail">编辑客户</el-button>
+    </div>
+</el-dialog>
+
+<!-- 编辑客户弹窗 -->
+<el-dialog :title="dialogTitle" :visible.sync="editDialogVisible" width="500px" @close="resetForm">
+    <el-form :model="customerForm" :rules="formRules" ref="customerForm" label-width="100px">
+        <el-form-item label="用户名" prop="username">
+            <el-input v-model="customerForm.username" placeholder="请输入用户名"></el-input>
+        </el-form-item>
+
+        <el-form-item label="邮箱" prop="email">
+            <el-input v-model="customerForm.email" placeholder="请输入邮箱地址"></el-input>
+        </el-form-item>
+
+        <el-form-item label="手机号" prop="phone">
+            <el-input v-model="customerForm.phone" placeholder="请输入手机号"></el-input>
+        </el-form-item>
+
+        <el-form-item label="客户等级">
+            <el-select v-model="customerForm.level" placeholder="请选择客户等级" style="width: 100%;">
+                <el-option label="普通客户" value="normal"></el-option>
+                <el-option label="VIP客户" value="vip"></el-option>
+                <el-option label="黄金客户" value="gold"></el-option>
+                <el-option label="钻石客户" value="diamond"></el-option>
+            </el-select>
+        </el-form-item>
+
+        <el-form-item label="备注信息">
+            <el-input
+                type="textarea"
+                v-model="customerForm.notes"
+                placeholder="请输入备注信息"
+                :rows="3"
+                maxlength="200"
+                show-word-limit>
+            </el-input>
+        </el-form-item>
+    </el-form>
+
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="editDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">
+            保 存
+        </el-button>
+    </div>
+</el-dialog>
+
+<!-- 删除确认弹窗 -->
+<el-dialog title="删除确认" :visible.sync="deleteDialogVisible" width="400px">
+    <div style="text-align: center;">
+        <i class="el-icon-warning" style="font-size: 48px; color: #E6A23C; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要删除客户 <strong>"{{ deleteCustomerName }}"</strong> 吗？
+        </p>
+        <p style="color: #F56C6C; font-size: 14px; margin-bottom: 10px;">
+            该客户有 <strong>{{ deleteCustomerOrderCount }}</strong> 个订单
+        </p>
+        <p style="color: #909399; font-size: 14px;">
+            删除后客户数据和订单记录都将被保留，但客户无法再登录系统！
+        </p>
+    </div>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">取 消</el-button>
+        <el-button type="danger" @click="confirmDelete" :loading="deleting">确 定</el-button>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+searchText: '{{ search }}',
+customersData: [
+    {% if customers.items %}
+    {% for customer in customers.items %}
+    {
+        id: {{ customer.id }},
+        username: '{{ customer.username }}',
+        email: '{{ customer.email or "" }}',
+        phone: '{{ customer.phone or "" }}',
+        order_count: {{ customer.order_count or 0 }},
+        total_spent: '{{ "%.2f"|format(customer.total_spent or 0) }}',
+        last_order_date: '{{ customer.last_order_date.strftime('%Y-%m-%d') if customer.last_order_date else "" }}',
+        created_at: '{{ customer.created_at.strftime('%Y-%m-%d %H:%M') }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+],
+// 弹窗相关数据
+customerDetailVisible: false,
+editDialogVisible: false,
+deleteDialogVisible: false,
+dialogTitle: '编辑客户',
+submitting: false,
+deleting: false,
+currentCustomer: null,
+deleteCustomerId: null,
+deleteCustomerName: '',
+deleteCustomerOrderCount: 0,
+customerForm: {
+    id: null,
+    username: '',
+    email: '',
+    phone: '',
+    level: 'normal',
+    notes: ''
+},
+formRules: {
+    username: [
+        { required: true, message: '请输入用户名', trigger: 'blur' },
+        { min: 2, max: 50, message: '用户名长度在 2 到 50 个字符', trigger: 'blur' }
+    ],
+    email: [
+        { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    ],
+    phone: [
+        { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+// 搜索客户
+searchCustomers() {
+    const searchParam = this.searchText ? `?search=${encodeURIComponent(this.searchText)}` : '';
+    window.location.href = `{{ url_for('admin.customers') }}${searchParam}`;
+},
+
+// 查看客户详情
+viewCustomer(customerId) {
+    // 通过API获取客户详情
+    fetch(`/admin/api/customer/${customerId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.currentCustomer = data.customer;
+                this.customerDetailVisible = true;
+            } else {
+                this.$message.error('获取客户详情失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
+},
+
+// 编辑客户
+editCustomer(customerId) {
+    this.dialogTitle = '编辑客户';
+    this.loadCustomerData(customerId);
+    this.editDialogVisible = true;
+},
+
+// 从详情页编辑客户
+editCustomerFromDetail() {
+    if (this.currentCustomer) {
+        this.customerForm = {
+            id: this.currentCustomer.id,
+            username: this.currentCustomer.username,
+            email: this.currentCustomer.email || '',
+            phone: this.currentCustomer.phone || '',
+            level: this.currentCustomer.level || 'normal',
+            notes: this.currentCustomer.notes || ''
+        };
+        this.customerDetailVisible = false;
+        this.editDialogVisible = true;
+    }
+},
+
+// 加载客户数据
+loadCustomerData(customerId) {
+    const customer = this.customersData.find(c => c.id === customerId);
+    if (customer) {
+        fetch(`/admin/api/customer/${customerId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.customerForm = {
+                        id: data.customer.id,
+                        username: data.customer.username,
+                        email: data.customer.email || '',
+                        phone: data.customer.phone || '',
+                        level: data.customer.level || 'normal',
+                        notes: data.customer.notes || ''
+                    };
+                } else {
+                    this.$message.error('加载客户信息失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            });
+    }
+},
+
+// 提交表单
+submitForm() {
+    this.$refs.customerForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+
+            const formData = new FormData();
+            Object.keys(this.customerForm).forEach(key => {
+                if (key !== 'id') {
+                    formData.append(key, this.customerForm[key]);
+                }
+            });
+
+            fetch(`/admin/api/customer/${this.customerForm.id}/edit`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success(data.message);
+                    this.editDialogVisible = false;
+                    this.refreshList();
+                } else {
+                    this.$message.error(data.message || '操作失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+// 删除客户
+deleteCustomer(customerId, customerName) {
+    const customer = this.customersData.find(c => c.id === customerId);
+    this.deleteCustomerId = customerId;
+    this.deleteCustomerName = customerName;
+    this.deleteCustomerOrderCount = customer ? customer.order_count : 0;
+    this.deleteDialogVisible = true;
+},
+
+// 确认删除
+confirmDelete() {
+    this.deleting = true;
+
+    fetch(`/admin/api/customer/${this.deleteCustomerId}/delete`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.deleteDialogVisible = false;
+            this.refreshList();
+        } else {
+            this.$message.error(data.message || '删除失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.deleting = false;
+    });
+},
+
+// 重置表单
+resetForm() {
+    this.customerForm = {
+        id: null,
+        username: '',
+        email: '',
+        phone: '',
+        level: 'normal',
+        notes: ''
+    };
+    if (this.$refs.customerForm) {
+        this.$refs.customerForm.resetFields();
+    }
+},
+
+// 查看订单
+viewOrder(orderId) {
+    window.open(`/admin/orders?order_id=${orderId}`, '_blank');
+},
+
+// 获取客户等级类型
+getCustomerLevelType(level) {
+    const levelMap = {
+        'normal': 'info',
+        'vip': 'success',
+        'gold': 'warning',
+        'diamond': 'danger'
+    };
+    return levelMap[level] || 'info';
+},
+
+// 获取客户等级文本
+getCustomerLevelText(level) {
+    const levelMap = {
+        'normal': '普通客户',
+        'vip': 'VIP客户',
+        'gold': '黄金客户',
+        'diamond': '钻石客户'
+    };
+    return levelMap[level] || '普通客户';
+},
+
+// 获取订单状态类型
+getOrderStatusType(status) {
+    const statusMap = {
+        'pending': 'warning',
+        'confirmed': 'success',
+        'paid': 'primary',
+        'rejected': 'danger',
+        'completed': 'success',
+        'refunded': 'info'
+    };
+    return statusMap[status] || 'info';
+},
+
+// 获取订单状态文本
+getOrderStatusText(status) {
+    const statusMap = {
+        'pending': '待确认',
+        'confirmed': '已确认',
+        'paid': '已支付',
+        'rejected': '已拒绝',
+        'completed': '已完成',
+        'refunded': '已退款'
+    };
+    return statusMap[status] || status;
+},
+
+// 分页处理
+handlePageChange(page) {
+    const searchParam = this.searchText ? `&search=${encodeURIComponent(this.searchText)}` : '';
+    window.location.href = `{{ url_for('admin.customers') }}?page=${page}${searchParam}`;
+},
+
+// 刷新列表
+refreshList() {
+    window.location.reload();
+}
+{% endblock %}

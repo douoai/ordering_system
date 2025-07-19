@@ -1,0 +1,215 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}菜单配置 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}menu_config{% endblock %}
+
+{% block page_icon %}<i class="fas fa-sort"></i>{% endblock %}
+{% block page_title %}菜单配置{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="initMenuConfig">
+    初始化菜单
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 菜单配置说明 -->
+<el-alert
+    title="菜单配置说明"
+    type="info"
+    description="您可以通过拖拽来调整菜单项的显示顺序，点击开关来控制菜单项的显示/隐藏状态。"
+    :closable="false"
+    style="margin-bottom: 20px;">
+</el-alert>
+
+<!-- 菜单列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 菜单项配置
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ menus|length }} 个菜单项</el-tag>
+        </div>
+    </div>
+
+    {% if menus %}
+    <el-table :data="menusData" style="width: 100%" stripe>
+        <el-table-column prop="sort_order" label="排序" width="80">
+            <template slot-scope="scope">
+                <el-tag type="primary" size="small">{{ "{{ scope.row.sort_order }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="menu_icon" label="图标" width="80">
+            <template slot-scope="scope">
+                <i :class="scope.row.menu_icon" style="font-size: 18px; color: #409EFF;"></i>
+            </template>
+        </el-table-column>
+        <el-table-column prop="menu_name" label="菜单名称" min-width="150">
+            <template slot-scope="scope">
+                <span style="font-weight: 600;">{{ "{{ scope.row.menu_name }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="menu_key" label="菜单键" width="150">
+            <template slot-scope="scope">
+                <el-tag type="info" size="small">{{ "{{ scope.row.menu_key }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="menu_url" label="链接地址" min-width="200">
+            <template slot-scope="scope">
+                <span style="color: #909399; font-family: monospace;">{{ "{{ scope.row.menu_url }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="is_visible" label="显示状态" width="100">
+            <template slot-scope="scope">
+                <el-switch
+                    v-model="scope.row.is_visible"
+                    @change="toggleMenuVisibility(scope.row.id, scope.row.is_visible)"
+                    active-color="#13ce66"
+                    inactive-color="#ff4949">
+                </el-switch>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="moveUp(scope.row.id)" 
+                           :disabled="scope.$index === 0">
+                    上移
+                </el-button>
+                <el-button type="text" size="small" @click="moveDown(scope.row.id)" 
+                           :disabled="scope.$index === menusData.length - 1">
+                    下移
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+    {% else %}
+    <el-empty description="暂无菜单配置">
+        <el-button type="primary" @click="initMenuConfig">初始化默认菜单</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 菜单预览 -->
+{% if menus %}
+<el-card style="margin-top: 20px;">
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-eye"></i> 菜单预览
+        </span>
+    </div>
+    
+    <div class="menu-preview">
+        {% for menu in menus %}
+        {% if menu.is_visible %}
+        <div class="menu-item-preview">
+            <i class="{{ menu.menu_icon }}"></i>
+            <span>{{ menu.menu_name }}</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</el-card>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+.menu-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.menu-item-preview {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    background-color: #f5f7fa;
+    border-radius: 4px;
+    border: 1px solid #e4e7ed;
+}
+
+.menu-item-preview i {
+    margin-right: 8px;
+    color: #409EFF;
+    font-size: 16px;
+}
+
+.menu-item-preview span {
+    color: #303133;
+    font-size: 14px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+menusData: [
+    {% if menus %}
+    {% for menu in menus %}
+    {
+        id: {{ menu.id }},
+        menu_key: {{ menu.menu_key|tojson }},
+        menu_name: {{ menu.menu_name|tojson }},
+        menu_icon: {{ menu.menu_icon|tojson }},
+        menu_url: {{ menu.menu_url|tojson }},
+        sort_order: {{ menu.sort_order }},
+        is_visible: {{ 'true' if menu.is_visible else 'false' }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+initMenuConfig() {
+    this.$confirm('此操作将初始化默认菜单配置, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        window.location.href = '{{ url_for('admin.init_menu_config') }}';
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+toggleMenuVisibility(menuId, isVisible) {
+    const action = isVisible ? '显示' : '隐藏';
+    this.$message.success(`菜单已设置为${action}`);
+    window.location.href = `/admin/menu_config/${menuId}/toggle`;
+},
+
+moveUp(menuId) {
+    window.location.href = `/admin/menu_config/${menuId}/move_up`;
+},
+
+moveDown(menuId) {
+    window.location.href = `/admin/menu_config/${menuId}/move_down`;
+},
+
+refreshList() {
+    this.$message.success('正在刷新列表...');
+    window.location.reload();
+}
+{% endblock %}

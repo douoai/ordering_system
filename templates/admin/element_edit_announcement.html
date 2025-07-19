@@ -1,0 +1,219 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}编辑公告 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}announcements{% endblock %}
+
+{% block page_icon %}<i class="fas fa-edit"></i>{% endblock %}
+{% block page_title %}编辑公告{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-back" @click="goBack">
+    返回公告列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<el-row justify="center">
+    <el-col :lg="16" :md="20" :sm="24">
+        <el-card>
+            <div slot="header">
+                <span><i class="fas fa-edit"></i> 编辑公告</span>
+            </div>
+            
+            <el-form :model="announcementForm" :rules="formRules" ref="announcementForm" label-width="100px">
+                <el-form-item label="公告标题" prop="title">
+                    <el-input v-model="announcementForm.title" placeholder="请输入公告标题"></el-input>
+                </el-form-item>
+                
+                <el-form-item label="公告类型" prop="announcement_type">
+                    <el-select v-model="announcementForm.announcement_type" placeholder="请选择公告类型" style="width: 100%;">
+                        <el-option label="信息公告" value="info"></el-option>
+                        <el-option label="成功消息" value="success"></el-option>
+                        <el-option label="警告提醒" value="warning"></el-option>
+                        <el-option label="重要通知" value="danger"></el-option>
+                    </el-select>
+                </el-form-item>
+                
+                <el-form-item label="公告内容" prop="content">
+                    <el-input
+                        type="textarea"
+                        v-model="announcementForm.content"
+                        placeholder="请输入公告内容"
+                        :rows="6"
+                        maxlength="1000"
+                        show-word-limit>
+                    </el-input>
+                </el-form-item>
+                
+                <el-form-item label="显示位置">
+                    <el-checkbox-group v-model="announcementForm.display_options">
+                        <el-checkbox label="show_on_homepage">首页显示</el-checkbox>
+                        <el-checkbox label="show_on_order">下单页显示</el-checkbox>
+                        <el-checkbox label="show_on_payment">支付页显示</el-checkbox>
+                    </el-checkbox-group>
+                </el-form-item>
+                
+                <el-form-item label="有效期">
+                    <el-date-picker
+                        v-model="announcementForm.dateRange"
+                        type="datetimerange"
+                        range-separator="至"
+                        start-placeholder="开始时间"
+                        end-placeholder="结束时间"
+                        format="yyyy-MM-dd HH:mm:ss"
+                        value-format="yyyy-MM-dd HH:mm:ss"
+                        style="width: 100%;">
+                    </el-date-picker>
+                </el-form-item>
+                
+                <el-form-item label="排序顺序">
+                    <el-input-number
+                        v-model="announcementForm.sort_order"
+                        :min="0"
+                        :max="999"
+                        style="width: 100%;">
+                    </el-input-number>
+                    <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                        数字越小排序越靠前
+                    </div>
+                </el-form-item>
+                
+                <el-form-item label="公告状态">
+                    <el-switch
+                        v-model="announcementForm.is_active"
+                        active-text="启用"
+                        inactive-text="禁用">
+                    </el-switch>
+                </el-form-item>
+                
+                <el-form-item>
+                    <el-button type="primary" @click="submitForm" :loading="submitting">
+                        <i class="fas fa-save"></i> 保存修改
+                    </el-button>
+                    <el-button @click="resetForm">
+                        <i class="fas fa-undo"></i> 重置
+                    </el-button>
+                    <el-button type="info" @click="goBack">
+                        <i class="fas fa-times"></i> 取消
+                    </el-button>
+                </el-form-item>
+            </el-form>
+        </el-card>
+    </el-col>
+</el-row>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-form {
+    max-width: 600px;
+}
+
+.el-textarea__inner {
+    resize: vertical;
+}
+
+.el-checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.el-checkbox {
+    margin-right: 0;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+announcementForm: {
+    title: '{{ announcement.title }}',
+    announcement_type: '{{ announcement.announcement_type }}',
+    content: '{{ announcement.content }}',
+    display_options: [
+        {% if announcement.show_on_homepage %}'show_on_homepage'{% endif %}
+        {% if announcement.show_on_order %}{% if announcement.show_on_homepage %},{% endif %}'show_on_order'{% endif %}
+        {% if announcement.show_on_payment %}{% if announcement.show_on_homepage or announcement.show_on_order %},{% endif %}'show_on_payment'{% endif %}
+    ],
+    dateRange: [
+        {% if announcement.start_time %}'{{ announcement.start_time.strftime('%Y-%m-%d %H:%M:%S') }}'{% else %}null{% endif %},
+        {% if announcement.end_time %}'{{ announcement.end_time.strftime('%Y-%m-%d %H:%M:%S') }}'{% else %}null{% endif %}
+    ],
+    sort_order: {{ announcement.sort_order or 0 }},
+    is_active: {{ 'true' if announcement.is_active else 'false' }}
+},
+submitting: false,
+formRules: {
+    title: [
+        { required: true, message: '请输入公告标题', trigger: 'blur' },
+        { min: 1, max: 100, message: '标题长度在 1 到 100 个字符', trigger: 'blur' }
+    ],
+    announcement_type: [
+        { required: true, message: '请选择公告类型', trigger: 'change' }
+    ],
+    content: [
+        { required: true, message: '请输入公告内容', trigger: 'blur' },
+        { min: 1, max: 1000, message: '内容长度在 1 到 1000 个字符', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+submitForm() {
+    this.$refs.announcementForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+            
+            const formData = new FormData();
+            formData.append('title', this.announcementForm.title);
+            formData.append('announcement_type', this.announcementForm.announcement_type);
+            formData.append('content', this.announcementForm.content);
+            formData.append('sort_order', this.announcementForm.sort_order);
+            formData.append('is_active', this.announcementForm.is_active);
+            
+            // 处理显示选项
+            formData.append('show_on_homepage', this.announcementForm.display_options.includes('show_on_homepage'));
+            formData.append('show_on_order', this.announcementForm.display_options.includes('show_on_order'));
+            formData.append('show_on_payment', this.announcementForm.display_options.includes('show_on_payment'));
+            
+            // 处理时间范围
+            if (this.announcementForm.dateRange && this.announcementForm.dateRange[0]) {
+                formData.append('start_time', this.announcementForm.dateRange[0]);
+            }
+            if (this.announcementForm.dateRange && this.announcementForm.dateRange[1]) {
+                formData.append('end_time', this.announcementForm.dateRange[1]);
+            }
+            
+            fetch('{{ url_for('admin.edit_announcement', announcement_id=announcement.id) }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success('公告更新成功！');
+                    setTimeout(() => {
+                        window.location.href = '{{ url_for('admin.announcements') }}';
+                    }, 1500);
+                } else {
+                    this.$message.error(data.message || '更新失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+resetForm() {
+    this.$refs.announcementForm.resetFields();
+},
+
+goBack() {
+    window.location.href = '{{ url_for('admin.announcements') }}';
+}
+{% endblock %}

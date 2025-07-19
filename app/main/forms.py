@@ -7,6 +7,8 @@ class UserInfoForm(FlaskForm):
     username = StringField('用户名', validators=[DataRequired(), Length(min=2, max=80)])
     phone = StringField('电话', validators=[DataRequired(), Length(min=11, max=20)],
                        render_kw={"placeholder": "请输入手机号"})
+    quantity = IntegerField('数量', validators=[DataRequired(), NumberRange(min=1, max=20)], default=1,
+                           render_kw={"placeholder": "请选择数量"})
     submit = SubmitField('开始下单')
 
 class OrderForm(FlaskForm):

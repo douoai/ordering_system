@@ -1,0 +1,542 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}产品管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}products{% endblock %}
+
+{% block page_icon %}<i class="fas fa-coffee"></i>{% endblock %}
+{% block page_title %}产品管理{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="showAddDialog">
+    添加产品
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 产品列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 产品列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ products.total }} 个产品</el-tag>
+        </div>
+    </div>
+
+    {% if products.items %}
+    <el-table :data="productsData" style="width: 100%" stripe>
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="name" label="产品名称" min-width="150">
+            <template slot-scope="scope">
+                <el-tag type="primary" size="small">{{ "{{ scope.row.name }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="category" label="分类" width="120">
+            <template slot-scope="scope">
+                <el-tag type="success" size="small">{{ "{{ scope.row.category }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="price" label="价格" width="100">
+            <template slot-scope="scope">
+                <span style="color: #F56C6C; font-weight: bold;">¥{{ "{{ scope.row.price }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_available ? 'success' : 'danger'" size="small">
+                    <span v-if="scope.row.is_available">可用</span>
+                    <span v-else>停售</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="editProduct(scope.row.id)">
+                    编辑
+                </el-button>
+                <el-button type="text" size="small" 
+                           :style="{color: scope.row.is_available ? '#F56C6C' : '#67C23A'}"
+                           @click="toggleProductStatus(scope.row.id, scope.row.is_available)">
+                    <span v-if="scope.row.is_available">停售</span>
+                    <span v-else>启用</span>
+                </el-button>
+                <el-button type="text" size="small" 
+                           style="color: #F56C6C;" 
+                           @click="deleteProduct(scope.row.id, scope.row.name)">
+                    删除
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    {% if products.pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        <el-pagination
+            @current-change="handlePageChange"
+            :current-page="{{ products.page }}"
+            :page-size="{{ products.per_page }}"
+            :total="{{ products.total }}"
+            layout="prev, pager, next, jumper, total">
+        </el-pagination>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <el-empty description="暂无产品数据">
+        <el-button type="primary" @click="addProduct">添加第一个产品</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 添加/编辑产品弹窗 -->
+<el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="600px" @close="resetForm">
+    <el-form :model="productForm" :rules="formRules" ref="productForm" label-width="100px">
+        <el-form-item label="产品名称" prop="name">
+            <el-input v-model="productForm.name" placeholder="请输入产品名称"></el-input>
+        </el-form-item>
+
+        <el-form-item label="产品分类" prop="category_id">
+            <el-select v-model="productForm.category_id" placeholder="请选择产品分类" style="width: 100%;">
+                <el-option
+                    v-for="category in categories"
+                    :key="category.id"
+                    :label="category.name"
+                    :value="category.id">
+                </el-option>
+            </el-select>
+        </el-form-item>
+
+        <el-form-item label="产品价格" prop="price">
+            <el-input-number
+                v-model="productForm.price"
+                :precision="2"
+                :step="0.1"
+                :min="0"
+                :max="999.99"
+                style="width: 100%;">
+            </el-input-number>
+        </el-form-item>
+
+        <el-form-item label="产品描述">
+            <el-input
+                type="textarea"
+                v-model="productForm.description"
+                placeholder="请输入产品描述"
+                :rows="3"
+                maxlength="500"
+                show-word-limit>
+            </el-input>
+        </el-form-item>
+
+        <el-form-item label="规格选项">
+            <el-input
+                v-model="productForm.size_options"
+                placeholder="请输入规格选项，用逗号分隔，如：小杯,中杯,大杯">
+            </el-input>
+        </el-form-item>
+
+        <el-form-item label="温度选项">
+            <el-input
+                v-model="productForm.temperature_options"
+                placeholder="请输入温度选项，用逗号分隔，如：热,冰,常温">
+            </el-input>
+        </el-form-item>
+
+        <el-form-item label="产品状态">
+            <el-switch
+                v-model="productForm.is_active"
+                active-text="启用"
+                inactive-text="禁用">
+            </el-switch>
+        </el-form-item>
+
+        <el-form-item label="产品图片">
+            <el-upload
+                class="image-uploader"
+                :action="uploadUrl"
+                :show-file-list="false"
+                :on-success="handleImageSuccess"
+                :on-error="handleImageError"
+                :before-upload="beforeImageUpload">
+                <img v-if="productForm.image_url" :src="'/static/' + productForm.image_url" class="uploaded-image">
+                <i v-else class="el-icon-plus image-uploader-icon"></i>
+            </el-upload>
+            <div class="upload-tip">
+                <p>支持 jpg、png、gif 格式，文件大小不超过 2MB</p>
+            </div>
+        </el-form-item>
+    </el-form>
+
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">
+            <span v-if="isEdit">更 新</span>
+            <span v-else>添 加</span>
+        </el-button>
+    </div>
+</el-dialog>
+
+<!-- 删除确认弹窗 -->
+<el-dialog title="删除确认" :visible.sync="deleteDialogVisible" width="400px">
+    <div style="text-align: center;">
+        <i class="el-icon-warning" style="font-size: 48px; color: #E6A23C; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要删除产品 <strong>"{{ deleteProductName }}"</strong> 吗？
+        </p>
+        <p style="color: #909399; font-size: 14px;">
+            此操作不可恢复，请谨慎操作！
+        </p>
+    </div>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">取 消</el-button>
+        <el-button type="danger" @click="confirmDelete" :loading="deleting">确 定</el-button>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+/* 图片上传样式 */
+.image-uploader .el-upload {
+    border: 1px dashed #d9d9d9;
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    width: 120px;
+    height: 120px;
+}
+
+.image-uploader .el-upload:hover {
+    border-color: #409EFF;
+}
+
+.image-uploader-icon {
+    font-size: 28px;
+    color: #8c939d;
+    width: 120px;
+    height: 120px;
+    line-height: 120px;
+    text-align: center;
+}
+
+.uploaded-image {
+    width: 120px;
+    height: 120px;
+    display: block;
+    object-fit: cover;
+}
+
+.upload-tip {
+    margin-top: 10px;
+    color: #909399;
+    font-size: 12px;
+}
+
+.upload-tip p {
+    margin: 0;
+}
+
+/* 弹窗样式 */
+.dialog-footer {
+    text-align: right;
+}
+
+.el-dialog__body {
+    padding: 20px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+productsData: [
+    {% if products.items %}
+    {% for product in products.items %}
+    {
+        id: {{ product.id }},
+        name: '{{ product.name }}',
+        category: '{{ product.category.name if product.category else "未分类" }}',
+        price: '{{ "%.2f"|format(product.price) }}',
+        is_available: {{ 'true' if product.is_active else 'false' }},
+        created_at: '{{ product.created_at.strftime('%Y-%m-%d %H:%M') }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+],
+categories: [
+    {% for category in categories %}
+    {
+        id: {{ category.id }},
+        name: '{{ category.name }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+],
+dialogVisible: false,
+deleteDialogVisible: false,
+dialogTitle: '添加产品',
+isEdit: false,
+submitting: false,
+deleting: false,
+deleteProductId: null,
+deleteProductName: '',
+uploadUrl: '/admin/upload_image',
+productForm: {
+    id: null,
+    name: '',
+    category_id: null,
+    price: 0,
+    description: '',
+    size_options: '',
+    temperature_options: '',
+    is_active: true,
+    image_url: ''
+},
+formRules: {
+    name: [
+        { required: true, message: '请输入产品名称', trigger: 'blur' },
+        { min: 1, max: 100, message: '产品名称长度在 1 到 100 个字符', trigger: 'blur' }
+    ],
+    category_id: [
+        { required: true, message: '请选择产品分类', trigger: 'change' }
+    ],
+    price: [
+        { required: true, message: '请输入产品价格', trigger: 'blur' },
+        { type: 'number', min: 0, max: 999.99, message: '价格必须在 0 到 999.99 之间', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+// 显示添加产品弹窗
+showAddDialog() {
+    this.dialogTitle = '添加产品';
+    this.isEdit = false;
+    this.resetForm();
+    this.dialogVisible = true;
+},
+
+// 显示编辑产品弹窗
+editProduct(productId) {
+    this.dialogTitle = '编辑产品';
+    this.isEdit = true;
+    this.loadProductData(productId);
+    this.dialogVisible = true;
+},
+
+// 加载产品数据
+loadProductData(productId) {
+    // 从当前页面数据中查找产品信息
+    const product = this.productsData.find(p => p.id === productId);
+    if (product) {
+        // 这里需要通过API获取完整的产品信息
+        fetch(`/admin/api/product/${productId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.productForm = {
+                        id: data.product.id,
+                        name: data.product.name,
+                        category_id: data.product.category_id,
+                        price: data.product.price,
+                        description: data.product.description || '',
+                        size_options: data.product.size_options || '',
+                        temperature_options: data.product.temperature_options || '',
+                        is_active: data.product.is_active,
+                        image_url: data.product.image || ''
+                    };
+                } else {
+                    this.$message.error('加载产品信息失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            });
+    }
+},
+
+// 提交表单
+submitForm() {
+    this.$refs.productForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+
+            const formData = new FormData();
+            Object.keys(this.productForm).forEach(key => {
+                if (key !== 'id') {
+                    formData.append(key, this.productForm[key]);
+                }
+            });
+
+            const url = this.isEdit ? `/admin/api/product/${this.productForm.id}/edit` : '/admin/api/product/add';
+
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success(data.message);
+                    this.dialogVisible = false;
+                    this.refreshList();
+                } else {
+                    this.$message.error(data.message || '操作失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+// 切换产品状态
+toggleProductStatus(productId, currentStatus) {
+    const action = currentStatus ? '停售' : '启用';
+    this.$confirm(`此操作将${action}该产品, 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        fetch(`/admin/api/product/${productId}/toggle`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.$message.success(data.message);
+                this.refreshList();
+            } else {
+                this.$message.error(data.message || '操作失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
+    }).catch(() => {
+        this.$message.info('已取消操作');
+    });
+},
+
+// 显示删除确认弹窗
+deleteProduct(productId, productName) {
+    this.deleteProductId = productId;
+    this.deleteProductName = productName;
+    this.deleteDialogVisible = true;
+},
+
+// 确认删除
+confirmDelete() {
+    this.deleting = true;
+
+    fetch(`/admin/api/product/${this.deleteProductId}/delete`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.deleteDialogVisible = false;
+            this.refreshList();
+        } else {
+            this.$message.error(data.message || '删除失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.deleting = false;
+    });
+},
+
+// 重置表单
+resetForm() {
+    this.productForm = {
+        id: null,
+        name: '',
+        category_id: null,
+        price: 0,
+        description: '',
+        size_options: '',
+        temperature_options: '',
+        is_active: true,
+        image_url: ''
+    };
+    if (this.$refs.productForm) {
+        this.$refs.productForm.resetFields();
+    }
+},
+
+// 图片上传成功
+handleImageSuccess(response, file) {
+    if (response.success) {
+        this.productForm.image_url = response.url;
+        this.$message.success('图片上传成功');
+    } else {
+        this.$message.error(response.message || '图片上传失败');
+    }
+},
+
+// 图片上传失败
+handleImageError(error) {
+    this.$message.error('图片上传失败，请重试');
+},
+
+// 图片上传前验证
+beforeImageUpload(file) {
+    const isImage = file.type.indexOf('image/') === 0;
+    const isLt2M = file.size / 1024 / 1024 < 2;
+
+    if (!isImage) {
+        this.$message.error('只能上传图片文件!');
+        return false;
+    }
+    if (!isLt2M) {
+        this.$message.error('上传图片大小不能超过 2MB!');
+        return false;
+    }
+    return true;
+},
+
+// 分页处理
+handlePageChange(page) {
+    window.location.href = `{{ url_for('admin.products') }}?page=${page}`;
+},
+
+// 刷新列表
+refreshList() {
+    window.location.reload();
+}
+{% endblock %}

@@ -1,0 +1,264 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}推送记录详情 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}push_records{% endblock %}
+
+{% block page_icon %}<i class="fas fa-history"></i>{% endblock %}
+{% block page_title %}推送记录详情 #{{ record.id }}{% endblock %}
+
+{% block page_actions %}
+<el-button type="info" icon="el-icon-back" @click="goBack">
+    返回列表
+</el-button>
+{% if record.order_id %}
+<el-button type="primary" icon="el-icon-view" @click="viewOrder">
+    查看关联订单
+</el-button>
+{% endif %}
+<el-button type="danger" icon="el-icon-delete" @click="deleteRecord">
+    删除记录
+</el-button>
+{% endblock %}
+
+{% block content %}
+<el-row :gutter="20">
+    <el-col :lg="16" :md="24">
+        <!-- 基本信息 -->
+        <el-card style="margin-bottom: 20px;">
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-info-circle"></i> 基本信息
+                </span>
+            </div>
+            
+            <el-descriptions :column="2" border>
+                <el-descriptions-item label="记录ID">{{ record.id }}</el-descriptions-item>
+                <el-descriptions-item label="推送配置">
+                    <el-tag type="primary" size="small">{{ record.config.name if record.config else "已删除" }}</el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="事件类型">
+                    <el-tag :type="getEventTagType('{{ record.event_type }}')" size="small">
+                        {{ record.event_type_text }}
+                    </el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="推送状态">
+                    <el-tag :type="getStatusTagType('{{ record.status }}')" size="small">
+                        {{ record.status_text }}
+                    </el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="创建时间">
+                    {{ record.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                </el-descriptions-item>
+                <el-descriptions-item label="发送时间">
+                    {% if record.sent_at %}
+                        {{ record.sent_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    {% else %}
+                        <span style="color: #909399;">未发送</span>
+                    {% endif %}
+                </el-descriptions-item>
+                {% if record.order_id %}
+                <el-descriptions-item label="关联订单" :span="2">
+                    <el-button type="text" @click="viewOrder">
+                        <i class="fas fa-shopping-cart"></i> 订单 #{{ record.order_id }}
+                    </el-button>
+                </el-descriptions-item>
+                {% endif %}
+            </el-descriptions>
+        </el-card>
+
+        <!-- 推送内容 -->
+        <el-card style="margin-bottom: 20px;">
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-envelope"></i> 推送内容
+                </span>
+            </div>
+            
+            <el-descriptions :column="1" border>
+                <el-descriptions-item label="推送标题">
+                    <div style="font-weight: 600; color: #303133;">{{ record.title }}</div>
+                </el-descriptions-item>
+                <el-descriptions-item label="推送内容">
+                    <div style="white-space: pre-wrap; line-height: 1.6; color: #606266;">{{ record.content }}</div>
+                </el-descriptions-item>
+            </el-descriptions>
+        </el-card>
+
+        <!-- 错误信息 -->
+        {% if record.status == 'failed' and record.error_message %}
+        <el-card style="margin-bottom: 20px;">
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600; color: #F56C6C;">
+                    <i class="fas fa-exclamation-triangle"></i> 错误信息
+                </span>
+            </div>
+            
+            <el-alert
+                title="推送失败原因"
+                type="error"
+                :closable="false">
+                <div style="font-family: monospace; white-space: pre-wrap;">{{ record.error_message }}</div>
+            </el-alert>
+        </el-card>
+        {% endif %}
+
+        <!-- 响应数据 -->
+        {% if record.response_data %}
+        <el-card style="margin-bottom: 20px;">
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-code"></i> 响应数据
+                </span>
+            </div>
+            
+            <div style="background: #f5f7fa; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px; white-space: pre-wrap; overflow-x: auto;">{{ record.response_data }}</div>
+        </el-card>
+        {% endif %}
+    </el-col>
+
+    <el-col :lg="8" :md="24">
+        <!-- 配置信息 -->
+        {% if record.config %}
+        <el-card style="margin-bottom: 20px;">
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-cog"></i> 推送配置
+                </span>
+            </div>
+            
+            <el-descriptions :column="1" border size="small">
+                <el-descriptions-item label="配置名称">{{ record.config.name }}</el-descriptions-item>
+                <el-descriptions-item label="API端点">
+                    <div style="font-family: monospace; font-size: 12px; word-break: break-all;">{{ record.config.endpoint }}</div>
+                </el-descriptions-item>
+                <el-descriptions-item label="PushKey">
+                    <div style="font-family: monospace; font-size: 12px;">{{ record.config.pushkey[:8] }}...</div>
+                </el-descriptions-item>
+                <el-descriptions-item label="配置状态">
+                    <el-tag :type="record.config.is_active ? 'success' : 'danger'" size="mini">
+                        <span v-if="record.config.is_active">启用</span>
+                    <span v-else>禁用</span>
+                    </el-tag>
+                </el-descriptions-item>
+            </el-descriptions>
+        </el-card>
+        {% endif %}
+
+        <!-- 操作面板 -->
+        <el-card>
+            <div slot="header" class="clearfix">
+                <span style="font-weight: 600;">
+                    <i class="fas fa-tools"></i> 操作
+                </span>
+            </div>
+            
+            <div style="text-align: center;">
+                <el-button type="info" size="medium" @click="goBack" style="width: 100%; margin-bottom: 10px;">
+                    <i class="fas fa-arrow-left"></i> 返回记录列表
+                </el-button>
+                
+                {% if record.order_id %}
+                <el-button type="primary" size="medium" @click="viewOrder" style="width: 100%; margin-bottom: 10px;">
+                    <i class="fas fa-shopping-cart"></i> 查看关联订单
+                </el-button>
+                {% endif %}
+                
+                <el-button type="success" size="medium" @click="goToConfigs" style="width: 100%; margin-bottom: 10px;">
+                    <i class="fas fa-cog"></i> 推送配置管理
+                </el-button>
+                
+                <el-button type="danger" size="medium" @click="deleteRecord" style="width: 100%;">
+                    <i class="fas fa-trash"></i> 删除此记录
+                </el-button>
+            </div>
+        </el-card>
+    </el-col>
+</el-row>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+.el-descriptions {
+    margin-bottom: 0;
+}
+
+.el-descriptions__label {
+    font-weight: 600;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+recordData: {
+    id: {{ record.id }},
+    status: {{ record.status|tojson }},
+    event_type: {{ record.event_type|tojson }},
+    order_id: {{ record.order_id or 'null' }}
+}
+{% endblock %}
+
+{% block vue_methods %}
+goBack() {
+    window.location.href = '{{ url_for('admin.push_records') }}';
+},
+
+viewOrder() {
+    if (this.recordData.order_id) {
+        window.location.href = `/admin/orders/${this.recordData.order_id}`;
+    }
+},
+
+goToConfigs() {
+    window.location.href = '{{ url_for('admin.pushdeer_configs') }}';
+},
+
+deleteRecord() {
+    this.$confirm('此操作将永久删除该推送记录, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        // 提交删除表单
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/push_records/${this.recordData.id}/delete`;
+        document.body.appendChild(form);
+        form.submit();
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消删除'
+        });
+    });
+},
+
+getEventTagType(eventType) {
+    const typeMap = {
+        'new_order': 'primary',
+        'order_confirmed': 'success',
+        'order_cancelled': 'danger',
+        'order_refunded': 'warning',
+        'test': 'info'
+    };
+    return typeMap[eventType] || '';
+},
+
+getStatusTagType(status) {
+    const typeMap = {
+        'success': 'success',
+        'failed': 'danger',
+        'pending': 'warning'
+    };
+    return typeMap[status] || '';
+}
+{% endblock %}

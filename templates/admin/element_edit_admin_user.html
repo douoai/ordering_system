@@ -1,0 +1,291 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}编辑管理员 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}admin_users{% endblock %}
+
+{% block page_icon %}<i class="fas fa-user-edit"></i>{% endblock %}
+{% block page_title %}编辑管理员 - {{ admin_user.username }}{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-back" @click="goBack">
+    返回管理员列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<el-row justify="center">
+    <el-col :lg="16" :md="20" :sm="24">
+        <el-card>
+            <div slot="header">
+                <span><i class="fas fa-user-edit"></i> 编辑管理员</span>
+            </div>
+            
+            <el-form :model="userForm" :rules="formRules" ref="userForm" label-width="120px">
+                <el-form-item label="用户名" prop="username">
+                    <el-input v-model="userForm.username" placeholder="请输入用户名"></el-input>
+                    <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                        用户名用于登录，建议使用英文字母和数字
+                    </div>
+                </el-form-item>
+                
+                <el-form-item label="邮箱地址" prop="email">
+                    <el-input v-model="userForm.email" placeholder="请输入邮箱地址"></el-input>
+                    <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                        邮箱用于接收系统通知和密码重置
+                    </div>
+                </el-form-item>
+                
+                <el-form-item label="新密码">
+                    <el-input type="password" v-model="userForm.password" placeholder="留空表示不修改密码" show-password></el-input>
+                    <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                        如需修改密码，请输入新密码，否则留空
+                    </div>
+                </el-form-item>
+                
+                <el-form-item label="确认新密码" v-if="userForm.password">
+                    <el-input type="password" v-model="userForm.confirm_password" placeholder="请再次输入新密码" show-password></el-input>
+                </el-form-item>
+                
+                <el-form-item label="管理员角色" prop="role_ids">
+                    <el-select v-model="userForm.role_ids" multiple placeholder="请选择角色" style="width: 100%;">
+                        {% for role in roles %}
+                        <el-option
+                            label="{{ role.name }}"
+                            value="{{ role.id }}">
+                            <span style="float: left">{{ role.name }}</span>
+                            <span style="float: right; color: #8492a6; font-size: 13px">{{ role.description or '无描述' }}</span>
+                        </el-option>
+                        {% endfor %}
+                    </el-select>
+                    <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                        可以选择多个角色，角色决定了管理员的权限范围
+                    </div>
+                </el-form-item>
+                
+                <el-form-item label="管理员类型">
+                    <el-radio-group v-model="userForm.is_super_admin">
+                        <el-radio :label="false">普通管理员</el-radio>
+                        <el-radio :label="true">超级管理员</el-radio>
+                    </el-radio-group>
+                    <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                        超级管理员拥有所有权限，普通管理员权限由角色决定
+                    </div>
+                </el-form-item>
+                
+                <el-form-item label="账号状态">
+                    <el-switch
+                        v-model="userForm.is_active"
+                        active-text="启用"
+                        inactive-text="禁用">
+                    </el-switch>
+                    <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                        禁用的账号无法登录系统
+                    </div>
+                </el-form-item>
+                
+                <el-form-item label="备注信息">
+                    <el-input
+                        type="textarea"
+                        v-model="userForm.notes"
+                        placeholder="请输入备注信息（可选）"
+                        :rows="3"
+                        maxlength="200"
+                        show-word-limit>
+                    </el-input>
+                </el-form-item>
+                
+                <el-form-item label="账号信息">
+                    <el-descriptions :column="1" border size="small">
+                        <el-descriptions-item label="创建时间">{{ admin_user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</el-descriptions-item>
+                        <el-descriptions-item label="最后登录">
+                            {% if admin_user.last_login %}
+                            {{ admin_user.last_login.strftime('%Y-%m-%d %H:%M:%S') }}
+                            {% else %}
+                            <span style="color: #909399;">从未登录</span>
+                            {% endif %}
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </el-form-item>
+                
+                <el-form-item>
+                    <el-button type="primary" @click="submitForm" :loading="submitting">
+                        <i class="fas fa-save"></i> 保存修改
+                    </el-button>
+                    <el-button @click="resetForm">
+                        <i class="fas fa-undo"></i> 重置
+                    </el-button>
+                    <el-button type="warning" @click="resetPassword">
+                        <i class="fas fa-key"></i> 重置密码
+                    </el-button>
+                    <el-button type="info" @click="goBack">
+                        <i class="fas fa-times"></i> 取消
+                    </el-button>
+                </el-form-item>
+            </el-form>
+        </el-card>
+    </el-col>
+</el-row>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-form {
+    max-width: 600px;
+}
+
+.el-select .el-select__tags {
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.el-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.el-radio {
+    margin-right: 0;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+userForm: {
+    username: '{{ admin_user.username }}',
+    email: '{{ admin_user.email or "" }}',
+    password: '',
+    confirm_password: '',
+    role_ids: [
+        {% for role in admin_user.roles %}
+        {{ role.id }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ],
+    is_super_admin: {{ 'true' if admin_user.is_super_admin else 'false' }},
+    is_active: {{ 'true' if admin_user.is_active else 'false' }},
+    notes: '{{ admin_user.notes or "" }}'
+},
+submitting: false,
+formRules: {
+    username: [
+        { required: true, message: '请输入用户名', trigger: 'blur' },
+        { min: 3, max: 50, message: '用户名长度在 3 到 50 个字符', trigger: 'blur' },
+        { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' }
+    ],
+    email: [
+        { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+        { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+validateConfirmPassword(rule, value, callback) {
+    if (this.userForm.password && value !== this.userForm.password) {
+        callback(new Error('两次输入的密码不一致'));
+    } else {
+        callback();
+    }
+},
+
+submitForm() {
+    this.$refs.userForm.validate((valid) => {
+        if (valid) {
+            // 如果输入了密码，验证确认密码
+            if (this.userForm.password && this.userForm.password !== this.userForm.confirm_password) {
+                this.$message.error('两次输入的密码不一致');
+                return;
+            }
+            
+            this.submitting = true;
+            
+            const formData = new FormData();
+            Object.keys(this.userForm).forEach(key => {
+                if (key === 'role_ids') {
+                    formData.append(key, JSON.stringify(this.userForm[key]));
+                } else if (key !== 'confirm_password') {
+                    // 如果密码为空，不发送密码字段
+                    if (key === 'password' && !this.userForm[key]) {
+                        return;
+                    }
+                    formData.append(key, this.userForm[key]);
+                }
+            });
+            
+            fetch('{{ url_for('admin.edit_admin_user', admin_user_id=admin_user.id) }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success('管理员信息更新成功！');
+                    setTimeout(() => {
+                        window.location.href = '{{ url_for('admin.admin_users') }}';
+                    }, 1500);
+                } else {
+                    this.$message.error(data.message || '更新失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+resetForm() {
+    this.$refs.userForm.resetFields();
+    // 重置为原始值
+    this.userForm = {
+        username: '{{ admin_user.username }}',
+        email: '{{ admin_user.email or "" }}',
+        password: '',
+        confirm_password: '',
+        role_ids: [
+            {% for role in admin_user.roles %}
+            {{ role.id }}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        is_super_admin: {{ 'true' if admin_user.is_super_admin else 'false' }},
+        is_active: {{ 'true' if admin_user.is_active else 'false' }},
+        notes: '{{ admin_user.notes or "" }}'
+    };
+},
+
+resetPassword() {
+    this.$prompt('请输入新密码', '重置密码', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputType: 'password',
+        inputPattern: /.{6,}/,
+        inputErrorMessage: '密码长度至少6位'
+    }).then(({ value }) => {
+        const formData = new FormData();
+        formData.append('new_password', value);
+        
+        fetch('{{ url_for('admin.reset_admin_password', admin_user_id=admin_user.id) }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.$message.success('密码重置成功！');
+            } else {
+                this.$message.error(data.message || '重置失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
+    });
+},
+
+goBack() {
+    window.location.href = '{{ url_for('admin.admin_users') }}';
+}
+{% endblock %}

@@ -1,0 +1,478 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}管理员管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}admin_users{% endblock %}
+
+{% block page_icon %}<i class="fas fa-user-shield"></i>{% endblock %}
+{% block page_title %}管理员管理{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="showAddDialog">
+    添加管理员
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 管理员列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 管理员列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ users.total }} 位管理员</el-tag>
+        </div>
+    </div>
+
+    {% if users.items %}
+    <el-table :data="usersData" style="width: 100%" stripe>
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="username" label="用户名" min-width="120">
+            <template slot-scope="scope">
+                <el-tag type="primary" size="small">{{ "{{ scope.row.username }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="email" label="邮箱" min-width="180">
+            <template slot-scope="scope">
+                <span style="color: #606266;">{{ "{{ scope.row.email || '未设置' }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="role" label="角色" width="120">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_super_admin ? 'danger' : 'success'" size="small">
+                    <span v-if="scope.row.is_super_admin">超级管理员</span>
+                    <span v-else>普通管理员</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="is_active" label="状态" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_active ? 'success' : 'danger'" size="small">
+                    <span v-if="scope.row.is_active">启用</span>
+                    <span v-else>禁用</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="last_login" label="最后登录" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.last_login || '从未登录' }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="250">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="editUser(scope.row.id)">
+                    <i class="fas fa-edit"></i> 编辑
+                </el-button>
+                <el-button type="text" size="small" 
+                           :style="{color: scope.row.is_active ? '#F56C6C' : '#67C23A'}"
+                           @click="toggleUserStatus(scope.row.id, scope.row.is_active)">
+                    <span v-if="scope.row.is_active">禁用</span>
+                    <span v-else>启用</span>
+                </el-button>
+                <el-button type="text" size="small" 
+                           style="color: #E6A23C;" 
+                           @click="resetPassword(scope.row.id, scope.row.username)">
+                    <i class="fas fa-key"></i> 重置密码
+                </el-button>
+                <el-button v-if="!scope.row.is_super_admin" 
+                           type="text" size="small" 
+                           style="color: #F56C6C;" 
+                           @click="deleteUser(scope.row.id, scope.row.username)">
+                    <i class="fas fa-trash"></i> 删除
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    {% if users.pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        <el-pagination
+            @current-change="handlePageChange"
+            :current-page="{{ users.page }}"
+            :page-size="{{ users.per_page }}"
+            :total="{{ users.total }}"
+            layout="prev, pager, next, jumper, total">
+        </el-pagination>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <el-empty description="暂无管理员数据">
+        <el-button type="primary" @click="showAddDialog">添加第一个管理员</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 添加/编辑管理员弹窗 -->
+<el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="500px" @close="resetForm">
+    <el-form :model="userForm" :rules="formRules" ref="userForm" label-width="100px">
+        <el-form-item label="用户名" prop="username">
+            <el-input v-model="userForm.username" placeholder="请输入用户名"></el-input>
+        </el-form-item>
+        
+        <el-form-item label="邮箱" prop="email">
+            <el-input v-model="userForm.email" placeholder="请输入邮箱地址"></el-input>
+        </el-form-item>
+        
+        <el-form-item v-if="!isEdit" label="密码" prop="password">
+            <el-input type="password" v-model="userForm.password" placeholder="请输入密码"></el-input>
+        </el-form-item>
+        
+        <el-form-item label="管理员类型">
+            <el-radio-group v-model="userForm.is_super_admin">
+                <el-radio :label="false">普通管理员</el-radio>
+                <el-radio :label="true">超级管理员</el-radio>
+            </el-radio-group>
+        </el-form-item>
+        
+        <el-form-item label="状态">
+            <el-switch
+                v-model="userForm.is_active"
+                active-text="启用"
+                inactive-text="禁用">
+            </el-switch>
+        </el-form-item>
+    </el-form>
+    
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">
+            <span v-if="isEdit">更 新</span>
+                    <span v-else>添 加</span>
+        </el-button>
+    </div>
+</el-dialog>
+
+<!-- 重置密码弹窗 -->
+<el-dialog title="重置密码" :visible.sync="resetPasswordVisible" width="400px">
+    <div style="text-align: center; margin-bottom: 20px;">
+        <i class="el-icon-key" style="font-size: 48px; color: #E6A23C; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要重置管理员 <strong>"{{ resetPasswordUsername }}"</strong> 的密码吗？
+        </p>
+        <p style="color: #909399; font-size: 14px;">
+            重置后密码将变为默认密码，请及时通知用户修改
+        </p>
+    </div>
+    
+    <el-form :model="resetPasswordForm" ref="resetPasswordForm" label-width="80px">
+        <el-form-item label="新密码" prop="new_password">
+            <el-input type="password" v-model="resetPasswordForm.new_password" placeholder="请输入新密码"></el-input>
+        </el-form-item>
+    </el-form>
+    
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="resetPasswordVisible = false">取 消</el-button>
+        <el-button type="warning" @click="confirmResetPassword" :loading="resetting">确 定</el-button>
+    </div>
+</el-dialog>
+
+<!-- 删除确认弹窗 -->
+<el-dialog title="删除确认" :visible.sync="deleteDialogVisible" width="400px">
+    <div style="text-align: center;">
+        <i class="el-icon-warning" style="font-size: 48px; color: #E6A23C; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要删除管理员 <strong>"{{ deleteUsername }}"</strong> 吗？
+        </p>
+        <p style="color: #F56C6C; font-size: 14px;">
+            此操作不可恢复，请谨慎操作！
+        </p>
+    </div>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">取 消</el-button>
+        <el-button type="danger" @click="confirmDelete" :loading="deleting">确 定</el-button>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+.dialog-footer {
+    text-align: right;
+}
+
+.el-dialog__body {
+    padding: 20px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+usersData: [
+    {% if users.items %}
+    {% for user in users.items %}
+    {
+        id: {{ user.id }},
+        username: '{{ user.username }}',
+        email: '{{ user.email or "" }}',
+        is_super_admin: {{ 'true' if user.is_super_admin else 'false' }},
+        is_active: {{ 'true' if user.is_active else 'false' }},
+        last_login: '{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else "" }}',
+        created_at: '{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+],
+dialogVisible: false,
+resetPasswordVisible: false,
+deleteDialogVisible: false,
+dialogTitle: '添加管理员',
+isEdit: false,
+submitting: false,
+resetting: false,
+deleting: false,
+resetPasswordUserId: null,
+resetPasswordUsername: '',
+deleteUserId: null,
+deleteUsername: '',
+userForm: {
+    id: null,
+    username: '',
+    email: '',
+    password: '',
+    is_super_admin: false,
+    is_active: true
+},
+resetPasswordForm: {
+    new_password: ''
+},
+formRules: {
+    username: [
+        { required: true, message: '请输入用户名', trigger: 'blur' },
+        { min: 3, max: 50, message: '用户名长度在 3 到 50 个字符', trigger: 'blur' }
+    ],
+    email: [
+        { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+        { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    ],
+    password: [
+        { required: true, message: '请输入密码', trigger: 'blur' },
+        { min: 6, max: 50, message: '密码长度在 6 到 50 个字符', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+// 显示添加管理员弹窗
+showAddDialog() {
+    this.dialogTitle = '添加管理员';
+    this.isEdit = false;
+    this.resetForm();
+    this.dialogVisible = true;
+},
+
+// 编辑管理员
+editUser(userId) {
+    this.dialogTitle = '编辑管理员';
+    this.isEdit = true;
+    this.loadUserData(userId);
+    this.dialogVisible = true;
+},
+
+// 加载管理员数据
+loadUserData(userId) {
+    const user = this.usersData.find(u => u.id === userId);
+    if (user) {
+        this.userForm = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            password: '',
+            is_super_admin: user.is_super_admin,
+            is_active: user.is_active
+        };
+    }
+},
+
+// 提交表单
+submitForm() {
+    this.$refs.userForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+            
+            const formData = new FormData();
+            Object.keys(this.userForm).forEach(key => {
+                if (key !== 'id' && (key !== 'password' || !this.isEdit)) {
+                    formData.append(key, this.userForm[key]);
+                }
+            });
+            
+            const url = this.isEdit ? `/admin/api/admin_user/${this.userForm.id}/edit` : '/admin/api/admin_user/add';
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success(data.message);
+                    this.dialogVisible = false;
+                    this.refreshList();
+                } else {
+                    this.$message.error(data.message || '操作失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+// 切换管理员状态
+toggleUserStatus(userId, currentStatus) {
+    const action = currentStatus ? '禁用' : '启用';
+    this.$confirm(`此操作将${action}该管理员, 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        fetch(`/admin/api/admin_user/${userId}/toggle`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.$message.success(data.message);
+                this.refreshList();
+            } else {
+                this.$message.error(data.message || '操作失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
+    }).catch(() => {
+        this.$message.info('已取消操作');
+    });
+},
+
+// 重置密码
+resetPassword(userId, username) {
+    this.resetPasswordUserId = userId;
+    this.resetPasswordUsername = username;
+    this.resetPasswordForm.new_password = '';
+    this.resetPasswordVisible = true;
+},
+
+// 确认重置密码
+confirmResetPassword() {
+    if (!this.resetPasswordForm.new_password) {
+        this.$message.error('请输入新密码');
+        return;
+    }
+    
+    this.resetting = true;
+    
+    const formData = new FormData();
+    formData.append('new_password', this.resetPasswordForm.new_password);
+    
+    fetch(`/admin/api/admin_user/${this.resetPasswordUserId}/reset_password`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.resetPasswordVisible = false;
+        } else {
+            this.$message.error(data.message || '重置失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.resetting = false;
+    });
+},
+
+// 删除管理员
+deleteUser(userId, username) {
+    this.deleteUserId = userId;
+    this.deleteUsername = username;
+    this.deleteDialogVisible = true;
+},
+
+// 确认删除
+confirmDelete() {
+    this.deleting = true;
+    
+    fetch(`/admin/api/admin_user/${this.deleteUserId}/delete`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.deleteDialogVisible = false;
+            this.refreshList();
+        } else {
+            this.$message.error(data.message || '删除失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.deleting = false;
+    });
+},
+
+// 重置表单
+resetForm() {
+    this.userForm = {
+        id: null,
+        username: '',
+        email: '',
+        password: '',
+        is_super_admin: false,
+        is_active: true
+    };
+    if (this.$refs.userForm) {
+        this.$refs.userForm.resetFields();
+    }
+},
+
+// 分页处理
+handlePageChange(page) {
+    window.location.href = `{{ url_for('admin.admin_users') }}?page=${page}`;
+},
+
+// 刷新列表
+refreshList() {
+    window.location.reload();
+}
+{% endblock %}

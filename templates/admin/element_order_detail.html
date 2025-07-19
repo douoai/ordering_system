@@ -1,0 +1,240 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}订单详情 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}orders{% endblock %}
+
+{% block page_icon %}<i class="fas fa-receipt"></i>{% endblock %}
+{% block page_title %}订单详情 #{{ order.id }}{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-back" @click="goBack">
+    返回订单列表
+</el-button>
+<el-button type="success" icon="el-icon-printer" @click="printOrder">
+    打印订单
+</el-button>
+{% if order.status == 'pending' %}
+<el-button type="success" @click="confirmOrder">
+    确认订单
+</el-button>
+<el-button type="danger" @click="rejectOrder">
+    拒绝订单
+</el-button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<el-row :gutter="20">
+    <!-- 订单基本信息 -->
+    <el-col :span="12">
+        <el-card shadow="never">
+            <div slot="header">
+                <span><i class="fas fa-info-circle"></i> 订单信息</span>
+            </div>
+            <el-descriptions :column="1" border>
+                <el-descriptions-item label="订单号">{{ order.id }}</el-descriptions-item>
+                <el-descriptions-item label="客户姓名">{{ order.user.username if order.user else '游客' }}</el-descriptions-item>
+                <el-descriptions-item label="联系电话">{{ order.user.phone if order.user else '未提供' }}</el-descriptions-item>
+                <el-descriptions-item label="订单状态">
+                    {% if order.status == 'pending' %}
+                    <el-tag type="warning">待确认</el-tag>
+                    {% elif order.status == 'confirmed' %}
+                    <el-tag type="success">已确认</el-tag>
+                    {% elif order.status == 'paid' %}
+                    <el-tag type="primary">已支付</el-tag>
+                    {% elif order.status == 'rejected' %}
+                    <el-tag type="danger">已拒绝</el-tag>
+                    {% elif order.status == 'completed' %}
+                    <el-tag type="success">已完成</el-tag>
+                    {% elif order.status == 'refunded' %}
+                    <el-tag type="info">已退款</el-tag>
+                    {% else %}
+                    <el-tag type="info">{{ order.status }}</el-tag>
+                    {% endif %}
+                </el-descriptions-item>
+                <el-descriptions-item label="订单金额">
+                    <span style="color: #F56C6C; font-weight: bold; font-size: 18px;">
+                        ¥{{ "%.2f"|format(order.total_amount) }}
+                    </span>
+                </el-descriptions-item>
+                <el-descriptions-item label="下单时间">{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</el-descriptions-item>
+                {% if order.updated_at != order.created_at %}
+                <el-descriptions-item label="更新时间">{{ order.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</el-descriptions-item>
+                {% endif %}
+            </el-descriptions>
+        </el-card>
+    </el-col>
+
+    <!-- 商品信息 -->
+    <el-col :span="12">
+        <el-card shadow="never">
+            <div slot="header">
+                <span><i class="fas fa-shopping-bag"></i> 商品明细</span>
+            </div>
+            <div v-for="item in orderItems" :key="item.id" style="margin-bottom: 15px; padding: 15px; border: 1px solid #EBEEF5; border-radius: 6px;">
+                <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: bold; font-size: 16px;">{{ "{{ item.name }}" }}</span>
+                    <span style="color: #F56C6C; font-weight: bold; font-size: 16px;">¥{{ "{{ item.subtotal }}" }}</span>
+                </div>
+                <div style="color: #909399; font-size: 14px; margin-bottom: 5px;">
+                    数量：{{ "{{ item.quantity }}" }} 杯
+                </div>
+                <div style="color: #606266; font-size: 14px;">
+                    规格：{{ "{{ item.specs }}" }}
+                </div>
+                {% if item.notes %}
+                <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                    备注：{{ item.notes }}
+                </div>
+                {% endif %}
+            </div>
+        </el-card>
+    </el-col>
+</el-row>
+
+{% if order.notes %}
+<el-row style="margin-top: 20px;">
+    <el-col :span="24">
+        <el-card shadow="never">
+            <div slot="header">
+                <span><i class="fas fa-comment"></i> 订单备注</span>
+            </div>
+            <p style="margin: 0; padding: 10px; background: #f5f7fa; border-radius: 4px;">
+                {{ order.notes }}
+            </p>
+        </el-card>
+    </el-col>
+</el-row>
+{% endif %}
+
+{% if order.status == 'rejected' and order.reject_reason %}
+<el-row style="margin-top: 20px;">
+    <el-col :span="24">
+        <el-card shadow="never">
+            <div slot="header">
+                <span><i class="fas fa-times-circle"></i> 拒绝原因</span>
+            </div>
+            <p style="margin: 0; padding: 10px; background: #fef0f0; border-radius: 4px; color: #F56C6C;">
+                {{ order.reject_reason }}
+            </p>
+        </el-card>
+    </el-col>
+</el-row>
+{% endif %}
+
+<!-- 操作记录 -->
+<el-row style="margin-top: 20px;">
+    <el-col :span="24">
+        <el-card shadow="never">
+            <div slot="header">
+                <span><i class="fas fa-history"></i> 操作记录</span>
+            </div>
+            <el-timeline>
+                <el-timeline-item timestamp="{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}" placement="top">
+                    <el-card>
+                        <h4>订单创建</h4>
+                        <p>客户提交订单，等待确认</p>
+                    </el-card>
+                </el-timeline-item>
+                
+                {% if order.status != 'pending' %}
+                <el-timeline-item timestamp="{{ order.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}" placement="top">
+                    <el-card>
+                        {% if order.status == 'confirmed' %}
+                        <h4>订单确认</h4>
+                        <p>管理员确认订单，等待支付</p>
+                        {% elif order.status == 'rejected' %}
+                        <h4>订单拒绝</h4>
+                        <p>管理员拒绝订单</p>
+                        {% elif order.status == 'paid' %}
+                        <h4>订单支付</h4>
+                        <p>客户完成支付</p>
+                        {% elif order.status == 'completed' %}
+                        <h4>订单完成</h4>
+                        <p>订单制作完成，客户取餐</p>
+                        {% elif order.status == 'refunded' %}
+                        <h4>订单退款</h4>
+                        <p>订单已退款</p>
+                        {% endif %}
+                    </el-card>
+                </el-timeline-item>
+                {% endif %}
+            </el-timeline>
+        </el-card>
+    </el-col>
+</el-row>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-descriptions {
+    margin-top: 20px;
+}
+
+.el-card {
+    margin-bottom: 20px;
+}
+
+.el-timeline-item__content {
+    padding-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+orderItems: [
+    {% for item in order_items %}
+    {
+        id: {{ item.id }},
+        name: '{{ item.drink_product.name if item.drink_product else "未知产品" }}',
+        quantity: {{ item.quantity }},
+        specs: '{{ item.size or "" }}{% if item.temperature %} {{ item.temperature }}{% endif %}{% if item.sugar_level %} {{ item.sugar_level }}{% endif %}',
+        subtotal: '{{ "%.2f"|format(item.subtotal) }}',
+        notes: '{{ item.notes or "" }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+goBack() {
+    window.history.back();
+},
+
+printOrder() {
+    window.open('{{ url_for('admin.print_order', order_id=order.id) }}', '_blank');
+},
+
+confirmOrder() {
+    this.$confirm('确定要确认这个订单吗？', '确认订单', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        window.location.href = '{{ url_for('admin.confirm_order', order_id=order.id) }}';
+    });
+},
+
+rejectOrder() {
+    this.$prompt('请输入拒绝原因', '拒绝订单', {
+        confirmButtonText: '确认拒绝',
+        cancelButtonText: '取消',
+        inputPattern: /.{2,}/,
+        inputErrorMessage: '请输入至少2个字符的拒绝原因',
+        inputPlaceholder: '请详细说明拒绝此订单的原因...'
+    }).then(({ value }) => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for('admin.reject_order', order_id=order.id) }}';
+        
+        const reasonInput = document.createElement('input');
+        reasonInput.type = 'hidden';
+        reasonInput.name = 'reason';
+        reasonInput.value = value;
+        form.appendChild(reasonInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    });
+}
+{% endblock %}

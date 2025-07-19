@@ -1,0 +1,335 @@
+{% extends "element_base.html" %}
+
+{% block title %}我的订单 - 发财小狗饮品店{% endblock %}
+
+{% block extra_css %}
+<style>
+.orders-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.order-card {
+    margin-bottom: 20px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.order-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.order-content {
+    padding: 20px;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.order-item:last-child {
+    border-bottom: none;
+}
+
+.order-actions {
+    text-align: right;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.status-pending { color: #E6A23C; }
+.status-confirmed { color: #67C23A; }
+.status-completed { color: #409EFF; }
+.status-cancelled { color: #F56C6C; }
+.status-rejected { color: #F56C6C; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="app" class="orders-container">
+    <div style="margin-bottom: 20px;">
+        <h1 style="color: #303133; margin-bottom: 10px;">
+            <i class="fas fa-list-alt"></i> 我的订单
+        </h1>
+        <p style="color: #606266;">查看您的所有订单记录和状态</p>
+    </div>
+
+    <!-- 筛选器 -->
+    <el-card style="margin-bottom: 20px;">
+        <el-form :inline="true" :model="filterForm" class="filter-form">
+            <el-form-item label="订单状态">
+                <el-select v-model="filterForm.status" placeholder="全部状态" clearable @change="filterOrders">
+                    <el-option label="待确认" value="pending"></el-option>
+                    <el-option label="已确认" value="confirmed"></el-option>
+                    <el-option label="已完成" value="completed"></el-option>
+                    <el-option label="已取消" value="cancelled"></el-option>
+                    <el-option label="已拒绝" value="rejected"></el-option>
+                </el-select>
+            </el-form-item>
+            <el-form-item label="时间范围">
+                <el-date-picker
+                    v-model="filterForm.dateRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    @change="filterOrders">
+                </el-date-picker>
+            </el-form-item>
+            <el-form-item>
+                <el-button type="primary" @click="filterOrders">筛选</el-button>
+                <el-button @click="clearFilter">清空</el-button>
+            </el-form-item>
+        </el-form>
+    </el-card>
+
+    <!-- 订单列表 -->
+    <div v-if="filteredOrders.length === 0" style="text-align: center; padding: 60px 0;">
+        <i class="fas fa-shopping-cart" style="font-size: 64px; color: #ddd; margin-bottom: 20px;"></i>
+        <h3 style="color: #999; margin-bottom: 10px;">暂无订单</h3>
+        <p style="color: #ccc;">您还没有任何订单记录</p>
+        <el-button type="primary" @click="goToOrder" style="margin-top: 20px;">
+            <i class="fas fa-plus"></i> 立即下单
+        </el-button>
+    </div>
+
+    <div v-else>
+        <div v-for="order in filteredOrders" :key="order.id" class="order-card">
+            <el-card>
+                <div class="order-header">
+                    <div>
+                        <span style="font-size: 16px; font-weight: 600;">订单 #{{ "{{ order.id }}" }}</span>
+                        <span style="margin-left: 20px; opacity: 0.8;">{{ "{{ order.created_at }}" }}</span>
+                    </div>
+                    <div>
+                        <el-tag 
+                            :type="getStatusTagType(order.status)" 
+                            size="medium"
+                            :class="'status-' + order.status">
+                            {{ "{{ getStatusText(order.status) }}" }}
+                        </el-tag>
+                    </div>
+                </div>
+                
+                <div class="order-content">
+                    <!-- 订单商品 -->
+                    <div v-for="item in order.items" :key="item.id" class="order-item">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 5px;">{{ "{{ item.product_name }}" }}</div>
+                            <div style="font-size: 12px; color: #666;" v-if="item.specification_name">
+                                规格: {{ "{{ item.specification_name }}" }}
+                            </div>
+                            <div style="font-size: 12px; color: #666;" v-if="item.notes">
+                                备注: {{ "{{ item.notes }}" }}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600;">¥{{ "{{ item.price }}" }} × {{ "{{ item.quantity }}" }}</div>
+                            <div style="color: #E6A23C; font-weight: 600;">¥{{ "{{ (item.price * item.quantity).toFixed(2) }}" }}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 订单总计 -->
+                    <div style="text-align: right; margin-top: 15px; padding-top: 15px; border-top: 2px solid #f0f0f0;">
+                        <span style="font-size: 18px; font-weight: 600; color: #E6A23C;">
+                            总计: ¥{{ "{{ order.total_amount }}" }}
+                        </span>
+                    </div>
+                    
+                    <!-- 订单操作 -->
+                    <div class="order-actions">
+                        <el-button size="small" @click="viewOrderDetail(order.id)">
+                            <i class="fas fa-eye"></i> 查看详情
+                        </el-button>
+                        
+                        <el-button 
+                            v-if="order.status === 'pending'" 
+                            type="warning" 
+                            size="small" 
+                            @click="cancelOrder(order.id)">
+                            <i class="fas fa-times"></i> 取消订单
+                        </el-button>
+                        
+                        <el-button 
+                            v-if="order.status === 'confirmed'" 
+                            type="success" 
+                            size="small" 
+                            @click="confirmReceived(order.id)">
+                            <i class="fas fa-check"></i> 确认收货
+                        </el-button>
+                        
+                        <el-button 
+                            v-if="['completed', 'cancelled'].includes(order.status)" 
+                            type="primary" 
+                            size="small" 
+                            @click="reorder(order.id)">
+                            <i class="fas fa-redo"></i> 再次下单
+                        </el-button>
+                    </div>
+                </div>
+            </el-card>
+        </div>
+        
+        <!-- 分页 -->
+        <div style="text-align: center; margin-top: 30px;" v-if="totalPages > 1">
+            <el-pagination
+                @current-change="handlePageChange"
+                :current-page="currentPage"
+                :page-size="pageSize"
+                :total="totalOrders"
+                layout="prev, pager, next, jumper, total">
+            </el-pagination>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+new Vue({
+    el: '#app',
+    data() {
+        return {
+            orders: {{ orders|tojson }},
+            filterForm: {
+                status: '',
+                dateRange: null
+            },
+            currentPage: {{ page }},
+            pageSize: {{ per_page }},
+            totalOrders: {{ total }}
+        }
+    },
+    computed: {
+        filteredOrders() {
+            let filtered = this.orders;
+            
+            // 状态筛选
+            if (this.filterForm.status) {
+                filtered = filtered.filter(order => order.status === this.filterForm.status);
+            }
+            
+            // 日期筛选
+            if (this.filterForm.dateRange && this.filterForm.dateRange.length === 2) {
+                const startDate = new Date(this.filterForm.dateRange[0]);
+                const endDate = new Date(this.filterForm.dateRange[1]);
+                
+                filtered = filtered.filter(order => {
+                    const orderDate = new Date(order.created_at);
+                    return orderDate >= startDate && orderDate <= endDate;
+                });
+            }
+            
+            return filtered;
+        },
+        totalPages() {
+            return Math.ceil(this.totalOrders / this.pageSize);
+        }
+    },
+    methods: {
+        getStatusText(status) {
+            const statusMap = {
+                'pending': '待确认',
+                'confirmed': '已确认',
+                'completed': '已完成',
+                'cancelled': '已取消',
+                'rejected': '已拒绝'
+            };
+            return statusMap[status] || status;
+        },
+        getStatusTagType(status) {
+            const typeMap = {
+                'pending': 'warning',
+                'confirmed': 'success',
+                'completed': 'primary',
+                'cancelled': 'danger',
+                'rejected': 'danger'
+            };
+            return typeMap[status] || '';
+        },
+        viewOrderDetail(orderId) {
+            window.location.href = `/order/${orderId}`;
+        },
+        async cancelOrder(orderId) {
+            try {
+                const confirmed = await this.$confirm('确定要取消这个订单吗？', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                });
+                
+                if (confirmed) {
+                    window.location.href = `/cancel_order/${orderId}`;
+                }
+            } catch (error) {
+                // 用户取消操作
+            }
+        },
+        async confirmReceived(orderId) {
+            try {
+                const response = await fetch(`/order/${orderId}/confirm_received`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.$message.success('确认收货成功！');
+                    location.reload();
+                } else {
+                    this.$message.error(result.message || '操作失败');
+                }
+            } catch (error) {
+                this.$message.error('网络错误，请重试');
+            }
+        },
+        reorder(orderId) {
+            window.location.href = `/order/reorder/${orderId}`;
+        },
+        filterOrders() {
+            // 重新加载页面以应用筛选
+            const params = new URLSearchParams();
+            if (this.filterForm.status) {
+                params.append('status', this.filterForm.status);
+            }
+            if (this.filterForm.dateRange && this.filterForm.dateRange.length === 2) {
+                params.append('start_date', this.filterForm.dateRange[0].toISOString().split('T')[0]);
+                params.append('end_date', this.filterForm.dateRange[1].toISOString().split('T')[0]);
+            }
+            
+            const queryString = params.toString();
+            const url = queryString ? `/my_orders?${queryString}` : '/my_orders';
+            window.location.href = url;
+        },
+        clearFilter() {
+            this.filterForm = {
+                status: '',
+                dateRange: null
+            };
+            window.location.href = '/my_orders';
+        },
+        handlePageChange(page) {
+            const params = new URLSearchParams(window.location.search);
+            params.set('page', page);
+            window.location.href = `/my_orders?${params.toString()}`;
+        },
+        goToOrder() {
+            window.location.href = '/order';
+        }
+    }
+});
+</script>
+{% endblock %}

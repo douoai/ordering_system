@@ -197,10 +197,22 @@
                         <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="100">
+                <el-table-column label="操作" width="180">
                     <template slot-scope="scope">
                         <el-button type="text" size="small" @click="viewOrder(scope.row.id)">
                             查看
+                        </el-button>
+                        <el-button v-if="scope.row.status === 'pending'"
+                                   type="text" size="small"
+                                   style="color: #67C23A;"
+                                   @click="quickConfirmOrder(scope.row.id)">
+                            确认
+                        </el-button>
+                        <el-button v-if="scope.row.status === 'pending'"
+                                   type="text" size="small"
+                                   style="color: #F56C6C;"
+                                   @click="quickRejectOrder(scope.row.id)">
+                            拒绝
                         </el-button>
                     </template>
                 </el-table-column>
@@ -368,6 +380,105 @@ getOrderStatusText(status) {
         'refunded': '已退款'
     };
     return statusMap[status] || status;
+},
+
+quickConfirmOrder(orderId) {
+    this.$confirm('此操作将确认该订单, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        // 获取CSRF token
+        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+
+        // 使用通用状态更新接口
+        const formData = new FormData();
+        formData.append('status', 'confirmed');
+
+        fetch(`/admin/order/${orderId}/update_status`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.$message({
+                    type: 'success',
+                    message: '订单确认成功!'
+                });
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                this.$message({
+                    type: 'error',
+                    message: '操作失败：' + (data.message || '请重试')
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.$message({
+                type: 'error',
+                message: '操作失败，请重试'
+            });
+        });
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+quickRejectOrder(orderId) {
+    this.$confirm('此操作将拒绝该订单, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        // 获取CSRF token
+        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+
+        // 使用通用状态更新接口
+        const formData = new FormData();
+        formData.append('status', 'rejected');
+
+        fetch(`/admin/order/${orderId}/update_status`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.$message({
+                    type: 'success',
+                    message: '订单拒绝成功!'
+                });
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                this.$message({
+                    type: 'error',
+                    message: '操作失败：' + (data.message || '请重试')
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.$message({
+                type: 'error',
+                message: '操作失败，请重试'
+            });
+        });
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
 }
-{% endblock %}
 {% endblock %}

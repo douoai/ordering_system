@@ -1,0 +1,418 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}分类管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}categories{% endblock %}
+
+{% block page_icon %}<i class="fas fa-tags"></i>{% endblock %}
+{% block page_title %}分类管理{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="showAddDialog">
+    添加分类
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 分类列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 分类列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ categories.total }} 个分类</el-tag>
+        </div>
+    </div>
+
+    {% if categories.items %}
+    <el-table :data="categoriesData" style="width: 100%" stripe>
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="name" label="分类名称" min-width="150">
+            <template slot-scope="scope">
+                <el-tag type="primary" size="small">{{ "{{ scope.row.name }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="description" label="描述" min-width="200">
+            <template slot-scope="scope">
+                <span style="color: #909399;">{{ "{{ scope.row.description || '暂无描述' }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="sort_order" label="排序" width="100">
+            <template slot-scope="scope">
+                <el-tag type="warning" size="small">{{ "{{ scope.row.sort_order }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="product_count" label="产品数量" width="120">
+            <template slot-scope="scope">
+                <el-tag type="success" size="small">{{ "{{ scope.row.product_count }}" }} 个</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_active ? 'success' : 'danger'" size="small">
+                    <span v-if="scope.row.is_active">启用</span>
+                    <span v-else>禁用</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="editCategory(scope.row.id)">
+                    编辑
+                </el-button>
+                <el-button type="text" size="small" 
+                           :style="{color: scope.row.is_active ? '#F56C6C' : '#67C23A'}"
+                           @click="toggleCategoryStatus(scope.row.id, scope.row.is_active)">
+                    <span v-if="scope.row.is_active">禁用</span>
+                    <span v-else>启用</span>
+                </el-button>
+                <el-button type="text" size="small" 
+                           style="color: #F56C6C;" 
+                           @click="deleteCategory(scope.row.id, scope.row.name)">
+                    删除
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    {% if categories.pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        <el-pagination
+            @current-change="handlePageChange"
+            :current-page="{{ categories.page }}"
+            :page-size="{{ categories.per_page }}"
+            :total="{{ categories.total }}"
+            layout="prev, pager, next, jumper, total">
+        </el-pagination>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <el-empty description="暂无分类数据">
+        <el-button type="primary" @click="addCategory">添加第一个分类</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 添加/编辑分类弹窗 -->
+<el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="500px" @close="resetForm">
+    <el-form :model="categoryForm" :rules="formRules" ref="categoryForm" label-width="100px">
+        <el-form-item label="分类名称" prop="name">
+            <el-input v-model="categoryForm.name" placeholder="请输入分类名称"></el-input>
+        </el-form-item>
+
+        <el-form-item label="分类描述">
+            <el-input
+                type="textarea"
+                v-model="categoryForm.description"
+                placeholder="请输入分类描述"
+                :rows="3"
+                maxlength="200"
+                show-word-limit>
+            </el-input>
+        </el-form-item>
+
+        <el-form-item label="排序顺序" prop="sort_order">
+            <el-input-number
+                v-model="categoryForm.sort_order"
+                :min="0"
+                :max="999"
+                style="width: 100%;">
+            </el-input-number>
+            <div style="color: #909399; font-size: 12px; margin-top: 5px;">
+                数字越小排序越靠前
+            </div>
+        </el-form-item>
+
+        <el-form-item label="分类状态">
+            <el-switch
+                v-model="categoryForm.is_active"
+                active-text="启用"
+                inactive-text="禁用">
+            </el-switch>
+        </el-form-item>
+    </el-form>
+
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">
+            <span v-if="isEdit">更 新</span>
+            <span v-else>添 加</span>
+        </el-button>
+    </div>
+</el-dialog>
+
+<!-- 删除确认弹窗 -->
+<el-dialog title="删除确认" :visible.sync="deleteDialogVisible" width="400px">
+    <div style="text-align: center;">
+        <i class="el-icon-warning" style="font-size: 48px; color: #E6A23C; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要删除分类 <strong>"{{ deleteCategoryName }}"</strong> 吗？
+        </p>
+        <p style="color: #909399; font-size: 14px; margin-bottom: 10px;">
+            该分类下有 <strong>{{ deleteCategoryProductCount }}</strong> 个产品
+        </p>
+        <p style="color: #F56C6C; font-size: 14px;">
+            删除后这些产品将变为未分类状态，此操作不可恢复！
+        </p>
+    </div>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">取 消</el-button>
+        <el-button type="danger" @click="confirmDelete" :loading="deleting">确 定</el-button>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+/* 弹窗样式 */
+.dialog-footer {
+    text-align: right;
+}
+
+.el-dialog__body {
+    padding: 20px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+categoriesData: [
+    {% if categories.items %}
+    {% for category in categories.items %}
+    {
+        id: {{ category.id }},
+        name: '{{ category.name }}',
+        description: '{{ category.description or "" }}',
+        sort_order: {{ category.sort_order or 0 }},
+        product_count: {{ category.product_count or 0 }},
+        is_active: {{ 'true' if category.is_active else 'false' }},
+        created_at: '{{ category.created_at.strftime('%Y-%m-%d %H:%M') }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+],
+dialogVisible: false,
+deleteDialogVisible: false,
+dialogTitle: '添加分类',
+isEdit: false,
+submitting: false,
+deleting: false,
+deleteCategoryId: null,
+deleteCategoryName: '',
+deleteCategoryProductCount: 0,
+categoryForm: {
+    id: null,
+    name: '',
+    description: '',
+    sort_order: 0,
+    is_active: true
+},
+formRules: {
+    name: [
+        { required: true, message: '请输入分类名称', trigger: 'blur' },
+        { min: 1, max: 50, message: '分类名称长度在 1 到 50 个字符', trigger: 'blur' }
+    ],
+    sort_order: [
+        { type: 'number', min: 0, max: 999, message: '排序顺序必须在 0 到 999 之间', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+// 显示添加分类弹窗
+showAddDialog() {
+    this.dialogTitle = '添加分类';
+    this.isEdit = false;
+    this.resetForm();
+    this.dialogVisible = true;
+},
+
+// 显示编辑分类弹窗
+editCategory(categoryId) {
+    this.dialogTitle = '编辑分类';
+    this.isEdit = true;
+    this.loadCategoryData(categoryId);
+    this.dialogVisible = true;
+},
+
+// 加载分类数据
+loadCategoryData(categoryId) {
+    // 从当前页面数据中查找分类信息
+    const category = this.categoriesData.find(c => c.id === categoryId);
+    if (category) {
+        // 通过API获取完整的分类信息
+        fetch(`/admin/api/category/${categoryId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.categoryForm = {
+                        id: data.category.id,
+                        name: data.category.name,
+                        description: data.category.description || '',
+                        sort_order: data.category.sort_order || 0,
+                        is_active: data.category.is_active
+                    };
+                } else {
+                    this.$message.error('加载分类信息失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            });
+    }
+},
+
+// 提交表单
+submitForm() {
+    this.$refs.categoryForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+
+            const formData = new FormData();
+            Object.keys(this.categoryForm).forEach(key => {
+                if (key !== 'id') {
+                    formData.append(key, this.categoryForm[key]);
+                }
+            });
+
+            const url = this.isEdit ? `/admin/api/category/${this.categoryForm.id}/edit` : '/admin/api/category/add';
+
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success(data.message);
+                    this.dialogVisible = false;
+                    this.refreshList();
+                } else {
+                    this.$message.error(data.message || '操作失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+// 切换分类状态
+toggleCategoryStatus(categoryId, currentStatus) {
+    const action = currentStatus ? '禁用' : '启用';
+    this.$confirm(`此操作将${action}该分类, 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        fetch(`/admin/api/category/${categoryId}/toggle`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.$message.success(data.message);
+                this.refreshList();
+            } else {
+                this.$message.error(data.message || '操作失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
+    }).catch(() => {
+        this.$message.info('已取消操作');
+    });
+},
+
+// 显示删除确认弹窗
+deleteCategory(categoryId, categoryName) {
+    // 获取分类的产品数量
+    const category = this.categoriesData.find(c => c.id === categoryId);
+    this.deleteCategoryId = categoryId;
+    this.deleteCategoryName = categoryName;
+    this.deleteCategoryProductCount = category ? category.product_count : 0;
+    this.deleteDialogVisible = true;
+},
+
+// 确认删除
+confirmDelete() {
+    this.deleting = true;
+
+    fetch(`/admin/api/category/${this.deleteCategoryId}/delete`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.deleteDialogVisible = false;
+            this.refreshList();
+        } else {
+            this.$message.error(data.message || '删除失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.deleting = false;
+    });
+},
+
+// 重置表单
+resetForm() {
+    this.categoryForm = {
+        id: null,
+        name: '',
+        description: '',
+        sort_order: 0,
+        is_active: true
+    };
+    if (this.$refs.categoryForm) {
+        this.$refs.categoryForm.resetFields();
+    }
+},
+
+// 分页处理
+handlePageChange(page) {
+    window.location.href = `{{ url_for('admin.categories') }}?page=${page}`;
+},
+
+// 刷新列表
+refreshList() {
+    window.location.reload();
+}
+{% endblock %}

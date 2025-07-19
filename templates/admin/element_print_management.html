@@ -1,0 +1,289 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}打印管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}print_mgmt{% endblock %}
+
+{% block page_icon %}<i class="fas fa-print"></i>{% endblock %}
+{% block page_title %}打印管理{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-printer" @click="printAllPending">
+    打印所有待确认订单
+</el-button>
+<el-button type="success" icon="el-icon-printer" @click="printAllConfirmed">
+    打印所有已确认订单
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 今日订单统计 -->
+<el-row :gutter="20" style="margin-bottom: 20px;">
+    <el-col :span="8">
+        <el-card class="stat-card">
+            <div class="stat-content">
+                <div class="stat-number">{{ today_orders|length }}</div>
+                <div class="stat-label">今日订单</div>
+            </div>
+        </el-card>
+    </el-col>
+    <el-col :span="8">
+        <el-card class="stat-card">
+            <div class="stat-content">
+                <div class="stat-number">{{ pending_orders|length }}</div>
+                <div class="stat-label">待确认订单</div>
+            </div>
+        </el-card>
+    </el-col>
+    <el-col :span="8">
+        <el-card class="stat-card">
+            <div class="stat-content">
+                <div class="stat-number">{{ confirmed_orders|length }}</div>
+                <div class="stat-label">已确认订单</div>
+            </div>
+        </el-card>
+    </el-col>
+</el-row>
+
+<!-- 待确认订单 -->
+<el-card style="margin-bottom: 20px;">
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-clock"></i> 待确认订单 ({{ pending_orders|length }})
+        </span>
+        <div style="float: right;">
+            <el-button type="warning" size="small" @click="printAllPending">
+                批量打印
+            </el-button>
+        </div>
+    </div>
+
+    {% if pending_orders %}
+    <el-table :data="pendingOrdersData" style="width: 100%" stripe>
+        <el-table-column type="selection" width="55"></el-table-column>
+        <el-table-column prop="id" label="订单号" width="100"></el-table-column>
+        <el-table-column prop="customer" label="客户" width="120"></el-table-column>
+        <el-table-column prop="items" label="商品" min-width="200"></el-table-column>
+        <el-table-column prop="amount" label="金额" width="100">
+            <template slot-scope="scope">
+                <span style="color: #F56C6C; font-weight: bold;">¥{{ "{{ scope.row.amount }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="下单时间" width="150"></el-table-column>
+        <el-table-column label="操作" width="200">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="viewOrder(scope.row.id)">
+                    查看
+                </el-button>
+                <el-button type="text" size="small" style="color: #E6A23C;" 
+                           @click="printKitchenTicket(scope.row.id)">
+                    制作小票
+                </el-button>
+                <el-button type="text" size="small" style="color: #67C23A;" 
+                           @click="printReceipt(scope.row.id)">
+                    收据
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+    {% else %}
+    <el-empty description="暂无待确认订单"></el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 已确认订单 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-check-circle"></i> 已确认订单 ({{ confirmed_orders|length }})
+        </span>
+        <div style="float: right;">
+            <el-button type="success" size="small" @click="printAllConfirmed">
+                批量打印
+            </el-button>
+        </div>
+    </div>
+
+    {% if confirmed_orders %}
+    <el-table :data="confirmedOrdersData" style="width: 100%" stripe>
+        <el-table-column type="selection" width="55"></el-table-column>
+        <el-table-column prop="id" label="订单号" width="100"></el-table-column>
+        <el-table-column prop="customer" label="客户" width="120"></el-table-column>
+        <el-table-column prop="items" label="商品" min-width="200"></el-table-column>
+        <el-table-column prop="amount" label="金额" width="100">
+            <template slot-scope="scope">
+                <span style="color: #F56C6C; font-weight: bold;">¥{{ "{{ scope.row.amount }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="下单时间" width="150"></el-table-column>
+        <el-table-column label="操作" width="200">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="viewOrder(scope.row.id)">
+                    查看
+                </el-button>
+                <el-button type="text" size="small" style="color: #E6A23C;" 
+                           @click="printKitchenTicket(scope.row.id)">
+                    制作小票
+                </el-button>
+                <el-button type="text" size="small" style="color: #67C23A;" 
+                           @click="printReceipt(scope.row.id)">
+                    收据
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+    {% else %}
+    <el-empty description="暂无已确认订单"></el-empty>
+    {% endif %}
+</el-card>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.stat-card {
+    text-align: center;
+}
+
+.stat-content {
+    padding: 20px;
+}
+
+.stat-number {
+    font-size: 32px;
+    font-weight: bold;
+    color: #409EFF;
+    margin-bottom: 8px;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #909399;
+}
+
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+pendingOrdersData: [
+    {% if pending_orders %}
+    {% for order in pending_orders %}
+    {
+        id: {{ order.id }},
+        customer: '{{ order.user.username }}',
+        items: '{{ order.order_items|length }} 件商品',
+        amount: '{{ "%.2f"|format(order.total_amount) }}',
+        created_at: '{{ order.created_at.strftime('%m-%d %H:%M') }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+],
+confirmedOrdersData: [
+    {% if confirmed_orders %}
+    {% for order in confirmed_orders %}
+    {
+        id: {{ order.id }},
+        customer: '{{ order.user.username }}',
+        items: '{{ order.order_items|length }} 件商品',
+        amount: '{{ "%.2f"|format(order.total_amount) }}',
+        created_at: '{{ order.created_at.strftime('%m-%d %H:%M') }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+viewOrder(orderId) {
+    window.location.href = `/admin/order/${orderId}`;
+},
+
+printKitchenTicket(orderId) {
+    this.$confirm('此操作将打印制作小票, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        window.location.href = `/admin/api_print_kitchen_ticket/${orderId}`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+printReceipt(orderId) {
+    this.$confirm('此操作将打印收据, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        window.location.href = `/admin/api_print_receipt/${orderId}`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+printAllPending() {
+    this.$confirm('此操作将打印所有待确认订单, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        const pendingIds = [{% for order in pending_orders %}{{ order.id }}{% if not loop.last %},{% endif %}{% endfor %}];
+        if (pendingIds.length === 0) {
+            this.$message.warning('没有待确认订单');
+            return;
+        }
+        window.open(`{{ url_for('admin.print_batch_orders') }}?order_ids=${pendingIds.join(',')}`, '_blank');
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+printAllConfirmed() {
+    this.$confirm('此操作将打印所有已确认订单, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        const confirmedIds = [{% for order in confirmed_orders %}{{ order.id }}{% if not loop.last %},{% endif %}{% endfor %}];
+        if (confirmedIds.length === 0) {
+            this.$message.warning('没有已确认订单');
+            return;
+        }
+        window.open(`{{ url_for('admin.print_batch_orders') }}?order_ids=${confirmedIds.join(',')}`, '_blank');
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+refreshList() {
+    this.$message.success('正在刷新列表...');
+    window.location.reload();
+}
+{% endblock %}

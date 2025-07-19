@@ -1,0 +1,414 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}{{ action if action else "管理" }}产品 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}products{% endblock %}
+
+{% block page_icon %}<i class="fas fa-coffee"></i>{% endblock %}
+{% block page_title %}{{ action if action else "管理" }}产品{% endblock %}
+
+{% block page_actions %}
+<el-button @click="goBack">
+    <i class="fas fa-arrow-left"></i> 返回列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <el-card>
+        <div slot="header" class="clearfix">
+            <span style="font-weight: 600;">
+                <i class="fas fa-edit"></i> {{ action if action else "管理" }}产品信息
+            </span>
+        </div>
+        
+        <el-form 
+            :model="productForm" 
+            :rules="formRules" 
+            ref="productForm" 
+            label-width="120px"
+            @submit.native.prevent="submitForm">
+            
+            <el-form-item label="产品名称" prop="name">
+                <el-input 
+                    v-model="productForm.name" 
+                    placeholder="请输入产品名称"
+                    maxlength="100"
+                    show-word-limit>
+                </el-input>
+            </el-form-item>
+            
+            <el-form-item label="产品分类" prop="category_id">
+                <el-select 
+                    v-model="productForm.category_id" 
+                    placeholder="请选择产品分类"
+                    style="width: 100%;">
+                    <el-option
+                        v-for="category in categories"
+                        :key="category.id"
+                        :label="category.name"
+                        :value="category.id">
+                    </el-option>
+                </el-select>
+            </el-form-item>
+            
+            <el-form-item label="产品价格" prop="price">
+                <el-input-number
+                    v-model="productForm.price"
+                    :precision="2"
+                    :step="0.1"
+                    :min="0"
+                    :max="999.99"
+                    placeholder="请输入产品价格">
+                </el-input-number>
+                <span style="margin-left: 10px; color: #606266;">元</span>
+            </el-form-item>
+            
+            <el-form-item label="产品描述" prop="description">
+                <el-input
+                    v-model="productForm.description"
+                    type="textarea"
+                    :rows="4"
+                    placeholder="请输入产品描述"
+                    maxlength="500"
+                    show-word-limit>
+                </el-input>
+            </el-form-item>
+            
+            <el-form-item label="产品图片">
+                <el-upload
+                    class="image-uploader"
+                    :action="uploadUrl"
+                    :show-file-list="false"
+                    :on-success="handleImageSuccess"
+                    :on-error="handleImageError"
+                    :before-upload="beforeImageUpload">
+                    <img v-if="productForm.image_url" :src="'/static/' + productForm.image_url" class="uploaded-image">
+                    <i v-else class="el-icon-plus image-uploader-icon"></i>
+                </el-upload>
+                <div class="upload-tip">
+                    <p>支持 jpg、png、gif 格式，文件大小不超过 2MB</p>
+                </div>
+            </el-form-item>
+            
+            <el-form-item label="产品状态">
+                <el-switch
+                    v-model="productForm.is_available"
+                    active-text="启用"
+                    inactive-text="禁用">
+                </el-switch>
+            </el-form-item>
+
+            <el-form-item label="规格选项">
+                <el-input
+                    v-model="productForm.size_options"
+                    placeholder="请输入规格选项，用逗号分隔，如：小杯,中杯,大杯">
+                </el-input>
+                <div class="form-tip">
+                    <i class="fas fa-info-circle"></i>
+                    多个规格用逗号分隔，如：小杯,中杯,大杯
+                </div>
+            </el-form-item>
+
+            <el-form-item label="温度选项">
+                <el-input
+                    v-model="productForm.temperature_options"
+                    placeholder="请输入温度选项，用逗号分隔，如：热,冰,常温">
+                </el-input>
+                <div class="form-tip">
+                    <i class="fas fa-info-circle"></i>
+                    多个温度用逗号分隔，如：热,冰,常温
+                </div>
+            </el-form-item>
+            
+            <el-form-item label="排序顺序" prop="sort_order">
+                <el-input-number
+                    v-model="productForm.sort_order"
+                    :min="0"
+                    :max="999"
+                    placeholder="排序顺序">
+                </el-input-number>
+                <span style="margin-left: 10px; color: #606266;">数字越小排序越靠前</span>
+            </el-form-item>
+            
+            <!-- 产品规格管理 -->
+            <el-form-item label="产品规格">
+                <div class="specifications-section">
+                    <div class="spec-header">
+                        <span>规格列表</span>
+                        <el-button type="primary" size="small" @click="addSpecification">
+                            <i class="fas fa-plus"></i> 添加规格
+                        </el-button>
+                    </div>
+                    
+                    <div v-if="productForm.specifications.length === 0" class="no-specs">
+                        <p>暂无规格，点击上方按钮添加规格</p>
+                    </div>
+                    
+                    <div v-else class="specs-list">
+                        <div 
+                            v-for="(spec, index) in productForm.specifications" 
+                            :key="index" 
+                            class="spec-item">
+                            <el-row :gutter="10">
+                                <el-col :span="8">
+                                    <el-input 
+                                        v-model="spec.name" 
+                                        placeholder="规格名称（如：大杯、中杯）">
+                                    </el-input>
+                                </el-col>
+                                <el-col :span="6">
+                                    <el-input-number
+                                        v-model="spec.price_adjustment"
+                                        :precision="2"
+                                        :step="0.1"
+                                        placeholder="价格调整">
+                                    </el-input-number>
+                                </el-col>
+                                <el-col :span="8">
+                                    <el-input 
+                                        v-model="spec.description" 
+                                        placeholder="规格描述（可选）">
+                                    </el-input>
+                                </el-col>
+                                <el-col :span="2">
+                                    <el-button 
+                                        type="danger" 
+                                        size="small" 
+                                        @click="removeSpecification(index)">
+                                        <i class="fas fa-trash"></i>
+                                    </el-button>
+                                </el-col>
+                            </el-row>
+                        </div>
+                    </div>
+                </div>
+            </el-form-item>
+            
+            <el-form-item>
+                <el-button 
+                    type="primary" 
+                    @click="submitForm" 
+                    :loading="submitting"
+                    size="large">
+                    <i class="fas fa-save"></i> {{ action if action else "保存" }}产品
+                </el-button>
+                <el-button @click="goBack" size="large">
+                    <i class="fas fa-times"></i> 取消
+                </el-button>
+            </el-form-item>
+        </el-form>
+    </el-card>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.image-uploader .el-upload {
+    border: 1px dashed #d9d9d9;
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    width: 150px;
+    height: 150px;
+}
+
+.image-uploader .el-upload:hover {
+    border-color: #409EFF;
+}
+
+.image-uploader-icon {
+    font-size: 28px;
+    color: #8c939d;
+    width: 150px;
+    height: 150px;
+    line-height: 150px;
+    text-align: center;
+}
+
+.uploaded-image {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    display: block;
+}
+
+.upload-tip {
+    margin-top: 10px;
+    color: #606266;
+    font-size: 12px;
+}
+
+.specifications-section {
+    border: 1px solid #e4e7ed;
+    border-radius: 4px;
+    padding: 15px;
+    background: #fafafa;
+}
+
+.spec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.no-specs {
+    text-align: center;
+    color: #909399;
+    padding: 20px 0;
+}
+
+.spec-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #e4e7ed;
+}
+
+.spec-item:last-child {
+    margin-bottom: 0;
+}
+
+.form-tip {
+    margin-top: 5px;
+    color: #909399;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+}
+
+.form-tip i {
+    margin-right: 5px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+productForm: {
+    name: {{ (product.name if product else "")|tojson }},
+    category_id: {{ product.category_id if product and product.category_id else "null" }},
+    price: {{ product.price if product else 0 }},
+    description: {{ (product.description if product else "")|tojson }},
+    image_url: {{ (product.image if product else "")|tojson }},
+    is_available: {{ 'true' if product and product.is_active else 'true' }},
+    sort_order: {{ 0 }},
+    size_options: {{ (product.size_options if product else "")|tojson }},
+    temperature_options: {{ (product.temperature_options if product else "")|tojson }},
+    specifications: []
+},
+categories: {{ (categories if categories else [])|tojson }},
+submitting: false,
+uploadUrl: '/admin/upload_image',
+formRules: {
+    name: [
+        { required: true, message: '请输入产品名称', trigger: 'blur' },
+        { min: 1, max: 100, message: '产品名称长度在 1 到 100 个字符', trigger: 'blur' }
+    ],
+    category_id: [
+        { required: true, message: '请选择产品分类', trigger: 'change' }
+    ],
+    price: [
+        { required: true, message: '请输入产品价格', trigger: 'blur' },
+        { type: 'number', min: 0, max: 999.99, message: '价格必须在 0 到 999.99 之间', trigger: 'blur' }
+    ],
+    sort_order: [
+        { type: 'number', min: 0, max: 999, message: '排序顺序必须在 0 到 999 之间', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+submitForm() {
+    this.$refs.productForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+            
+            const formData = new FormData();
+            Object.keys(this.productForm).forEach(key => {
+                if (key === 'specifications') {
+                    // 暂时跳过specifications，因为当前模型不支持
+                    return;
+                } else if (key === 'is_available') {
+                    // 将is_available映射到is_active
+                    formData.append('is_active', this.productForm[key]);
+                } else {
+                    formData.append(key, this.productForm[key]);
+                }
+            });
+            
+            const url = {% if product and product.id %}'/admin/product/{{ product.id }}/edit'{% else %}'/admin/product/add'{% endif %};
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success('{{ action if action else "操作" }}产品成功！');
+                    setTimeout(() => {
+                        window.location.href = '/admin/products';
+                    }, 1000);
+                } else {
+                    this.$message.error(data.message || '{{ action if action else "操作" }}产品失败');
+                }
+            }).catch(error => {
+                this.$message.error('网络错误，请重试');
+            }).finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+handleImageSuccess(response, file) {
+    if (response.success) {
+        this.productForm.image_url = response.url;
+        this.$message.success('图片上传成功');
+    } else {
+        this.$message.error(response.message || '图片上传失败');
+    }
+},
+
+handleImageError(error) {
+    this.$message.error('图片上传失败，请重试');
+},
+
+beforeImageUpload(file) {
+    const isImage = file.type.indexOf('image/') === 0;
+    const isLt2M = file.size / 1024 / 1024 < 2;
+
+    if (!isImage) {
+        this.$message.error('只能上传图片文件!');
+        return false;
+    }
+    if (!isLt2M) {
+        this.$message.error('上传图片大小不能超过 2MB!');
+        return false;
+    }
+    return true;
+},
+
+addSpecification() {
+    this.productForm.specifications.push({
+        name: '',
+        price_adjustment: 0,
+        description: ''
+    });
+},
+
+removeSpecification(index) {
+    this.productForm.specifications.splice(index, 1);
+},
+
+goBack() {
+    window.location.href = '/admin/products';
+}
+{% endblock %}

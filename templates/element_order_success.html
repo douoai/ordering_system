@@ -1,0 +1,311 @@
+{% extends "element_base.html" %}
+
+{% block title %}订单成功 - 发财小狗饮品店{% endblock %}
+
+{% block extra_css %}
+<style>
+.success-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.success-icon {
+    font-size: 80px;
+    color: #67C23A;
+    margin-bottom: 20px;
+    animation: bounce 1s ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+.success-title {
+    font-size: 28px;
+    color: #303133;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.success-subtitle {
+    font-size: 16px;
+    color: #606266;
+    margin-bottom: 30px;
+}
+
+.order-info-card {
+    margin: 30px 0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.order-header {
+    background: linear-gradient(135deg, #67C23A 0%, #85CE61 100%);
+    color: white;
+    padding: 20px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.order-content {
+    padding: 25px;
+    background: #f9f9f9;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #e4e7ed;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    color: #606266;
+    font-weight: 500;
+}
+
+.info-value {
+    color: #303133;
+    font-weight: 600;
+}
+
+.action-buttons {
+    margin-top: 40px;
+}
+
+.action-buttons .el-button {
+    margin: 0 10px;
+    padding: 12px 30px;
+    font-size: 16px;
+}
+
+.countdown {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f0f9ff;
+    border: 1px solid #b3d8ff;
+    border-radius: 8px;
+    color: #409EFF;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="app" class="success-container">
+    <!-- 成功图标和标题 -->
+    <div class="success-icon">
+        <i class="fas fa-check-circle"></i>
+    </div>
+    
+    <h1 class="success-title">订单提交成功！</h1>
+    <p class="success-subtitle">感谢您的订购，我们将尽快为您准备美味的饮品</p>
+    
+    <!-- 订单信息卡片 -->
+    <el-card class="order-info-card">
+        <div class="order-header">
+            <i class="fas fa-receipt"></i> 订单详情
+        </div>
+        <div class="order-content">
+            <div class="info-row">
+                <span class="info-label">订单编号</span>
+                <span class="info-value">#{{ order.id }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">下单时间</span>
+                <span class="info-value">{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">订单状态</span>
+                <span class="info-value">
+                    <el-tag type="warning">待确认</el-tag>
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">订单金额</span>
+                <span class="info-value" style="color: #E6A23C; font-size: 18px;">¥{{ "%.2f"|format(order.total_amount) }}</span>
+            </div>
+            {% if order.user %}
+            <div class="info-row">
+                <span class="info-label">联系方式</span>
+                <span class="info-value">{{ order.user.phone or order.user.username }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </el-card>
+    
+    <!-- 订单商品列表 -->
+    <el-card style="margin: 20px 0;">
+        <div slot="header" class="clearfix">
+            <span style="font-weight: 600;">
+                <i class="fas fa-list"></i> 订单商品
+            </span>
+        </div>
+        
+        <div v-for="item in orderItems" :key="item.id" style="padding: 10px 0; border-bottom: 1px solid #f0f0f0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 5px;">{{ "{{ item.product_name }}" }}</div>
+                    <div style="font-size: 12px; color: #666;" v-if="item.specification_name">
+                        规格: {{ "{{ item.specification_name }}" }}
+                    </div>
+                    <div style="font-size: 12px; color: #666;" v-if="item.notes">
+                        备注: {{ "{{ item.notes }}" }}
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: #606266;">¥{{ "{{ item.price }}" }} × {{ "{{ item.quantity }}" }}</div>
+                    <div style="font-weight: 600; color: #E6A23C;">¥{{ "{{ (item.price * item.quantity)|round(2) }}" }}</div>
+                </div>
+            </div>
+        </div>
+    </el-card>
+    
+    <!-- 温馨提示 -->
+    <el-alert
+        title="温馨提示"
+        type="info"
+        :closable="false"
+        style="margin: 20px 0; text-align: left;">
+        <div slot="description">
+            <ul style="margin: 0; padding-left: 20px;">
+                <li>您的订单已提交成功，我们将在5-10分钟内确认您的订单</li>
+                <li>订单确认后，我们将立即开始制作您的饮品</li>
+                <li>预计制作时间：10-15分钟</li>
+                <li>如有任何问题，请及时联系我们</li>
+            </ul>
+        </div>
+    </el-alert>
+    
+    <!-- 自动跳转倒计时 -->
+    <div class="countdown" v-if="countdown > 0">
+        <i class="fas fa-clock"></i>
+        {{ countdown }} 秒后自动跳转到订单详情页面
+        <el-button type="text" @click="cancelCountdown" style="margin-left: 10px;">取消自动跳转</el-button>
+    </div>
+    
+    <!-- 操作按钮 -->
+    <div class="action-buttons">
+        <el-button type="primary" size="large" @click="viewOrderDetail">
+            <i class="fas fa-eye"></i> 查看订单详情
+        </el-button>
+        
+        <el-button size="large" @click="goToMyOrders">
+            <i class="fas fa-list-alt"></i> 我的订单
+        </el-button>
+        
+        <el-button size="large" @click="continueOrder">
+            <i class="fas fa-plus"></i> 继续下单
+        </el-button>
+    </div>
+    
+    <!-- 分享按钮 -->
+    <div style="margin-top: 30px;">
+        <el-button type="text" @click="shareOrder">
+            <i class="fas fa-share-alt"></i> 分享订单
+        </el-button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+new Vue({
+    el: '#app',
+    data() {
+        return {
+            orderItems: {{ order_items|tojson }},
+            countdown: 10,
+            countdownTimer: null
+        }
+    },
+    mounted() {
+        this.startCountdown();
+    },
+    beforeDestroy() {
+        this.cancelCountdown();
+    },
+    methods: {
+        startCountdown() {
+            this.countdownTimer = setInterval(() => {
+                this.countdown--;
+                if (this.countdown <= 0) {
+                    this.cancelCountdown();
+                    this.viewOrderDetail();
+                }
+            }, 1000);
+        },
+        cancelCountdown() {
+            if (this.countdownTimer) {
+                clearInterval(this.countdownTimer);
+                this.countdownTimer = null;
+                this.countdown = 0;
+            }
+        },
+        viewOrderDetail() {
+            window.location.href = '/order/{{ order.id }}';
+        },
+        goToMyOrders() {
+            window.location.href = '/my_orders';
+        },
+        continueOrder() {
+            window.location.href = '/order';
+        },
+        shareOrder() {
+            if (navigator.share) {
+                navigator.share({
+                    title: '发财小狗饮品店 - 订单 #{{ order.id }}',
+                    text: '我在发财小狗饮品店下了一个订单，总金额 ¥{{ "%.2f"|format(order.total_amount) }}',
+                    url: window.location.origin + '/order/{{ order.id }}'
+                }).catch(err => {
+                    console.log('分享失败:', err);
+                    this.copyOrderLink();
+                });
+            } else {
+                this.copyOrderLink();
+            }
+        },
+        copyOrderLink() {
+            const orderLink = window.location.origin + '/order/{{ order.id }}';
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(orderLink).then(() => {
+                    this.$message.success('订单链接已复制到剪贴板');
+                }).catch(() => {
+                    this.fallbackCopyText(orderLink);
+                });
+            } else {
+                this.fallbackCopyText(orderLink);
+            }
+        },
+        fallbackCopyText(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                this.$message.success('订单链接已复制到剪贴板');
+            } catch (err) {
+                this.$message.error('复制失败，请手动复制链接');
+            }
+            document.body.removeChild(textArea);
+        }
+    }
+});
+</script>
+{% endblock %}

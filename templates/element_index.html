@@ -264,7 +264,9 @@ searchOrder() {
 },
 
 orderProduct(productId) {
-    window.location.href = `/order?product_id=${productId}`;
+    // 设置使用Element UI样式的标记
+    sessionStorage.setItem('use_element_ui', 'true');
+    window.location.href = `/quick_order/${productId}?style=element`;
 }
 {% endblock %}
 

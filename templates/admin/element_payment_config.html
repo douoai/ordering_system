@@ -1,0 +1,260 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}收款码配置 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}payment_config{% endblock %}
+
+{% block page_icon %}<i class="fas fa-qrcode"></i>{% endblock %}
+{% block page_title %}收款码配置{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="addPaymentConfig">
+    添加收款码
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 收款码配置列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 收款码配置列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ payments|length }} 个配置</el-tag>
+        </div>
+    </div>
+
+    {% if payments %}
+    <el-table :data="paymentsData" style="width: 100%" stripe>
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="payment_type" label="支付类型" width="120">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.payment_type === 'wechat' ? 'success' : 'primary'" size="small">
+                    <i :class="scope.row.payment_type === 'wechat' ? 'fab fa-weixin' : 'fab fa-alipay'"></i>
+                    <span v-if="scope.row.payment_type === 'wechat'">微信</span>
+                    <span v-else>支付宝</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="payment_name" label="支付名称" min-width="150">
+            <template slot-scope="scope">
+                <span style="font-weight: 600;">{{ "{{ scope.row.payment_name }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="account_name" label="账户名称" width="150">
+            <template slot-scope="scope">
+                <span style="color: #606266;">{{ "{{ scope.row.account_name || '未设置' }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="qr_code" label="二维码" width="120">
+            <template slot-scope="scope">
+                <div class="qr-preview" v-if="scope.row.qr_code_url">
+                    <img :src="scope.row.qr_code_url" 
+                         alt="二维码预览" 
+                         class="qr-preview-image"
+                         @click="previewQRCode(scope.row.qr_code_url, scope.row.payment_name)">
+                </div>
+                <span v-else style="color: #C0C4CC;">无二维码</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="sort_order" label="排序" width="80">
+            <template slot-scope="scope">
+                <el-tag type="warning" size="small">{{ "{{ scope.row.sort_order }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_active ? 'success' : 'danger'" size="small">
+                    <span v-if="scope.row.is_active">启用</span>
+                    <span v-else>禁用</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="editPaymentConfig(scope.row.id)">
+                    编辑
+                </el-button>
+                <el-button type="text" size="small" 
+                           :style="{color: scope.row.is_active ? '#F56C6C' : '#67C23A'}"
+                           @click="togglePaymentStatus(scope.row.id, scope.row.is_active)">
+                    <span v-if="scope.row.is_active">禁用</span>
+                    <span v-else>启用</span>
+                </el-button>
+                <el-button type="text" size="small" 
+                           style="color: #F56C6C;" 
+                           @click="deletePaymentConfig(scope.row.id, scope.row.payment_name)">
+                    删除
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    {% else %}
+    <el-empty description="暂无收款码配置">
+        <el-button type="primary" @click="addPaymentConfig">添加第一个收款码</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 使用说明 -->
+<el-card style="margin-top: 20px;">
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-info-circle"></i> 使用说明
+        </span>
+    </div>
+    
+    <el-alert
+        title="收款码配置说明"
+        type="info"
+        :closable="false">
+        <div slot="description">
+            <p><strong>1. 支付类型：</strong>选择微信支付或支付宝支付</p>
+            <p><strong>2. 二维码上传：</strong>上传对应的收款二维码图片</p>
+            <p><strong>3. 账户信息：</strong>填写收款账户名称和相关信息</p>
+            <p><strong>4. 排序设置：</strong>数字越小排序越靠前，影响支付页面显示顺序</p>
+            <p><strong>5. 状态控制：</strong>只有启用状态的收款码才会在支付页面显示</p>
+        </div>
+    </el-alert>
+</el-card>
+
+<!-- 二维码预览模态框 -->
+<el-dialog
+    title="二维码预览"
+    :visible.sync="qrPreviewVisible"
+    width="400px"
+    center>
+    <div style="text-align: center;">
+        <img :src="previewImageUrl" alt="二维码预览" style="max-width: 100%; max-height: 400px;">
+        <p style="margin-top: 10px; color: #606266;">{{ previewTitle }}</p>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+.qr-preview {
+    text-align: center;
+}
+
+.qr-preview-image {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid #DCDFE6;
+    transition: all 0.3s;
+}
+
+.qr-preview-image:hover {
+    transform: scale(1.1);
+    border-color: #409EFF;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+qrPreviewVisible: false,
+previewImageUrl: '',
+previewTitle: '',
+paymentsData: [
+    {% if payments %}
+    {% for payment in payments %}
+    {
+        id: {{ payment.id }},
+        payment_type: {{ payment.payment_type|tojson }},
+        payment_name: {{ payment.payment_name|tojson }},
+        account_name: {{ (payment.account_name or "")|tojson }},
+        qr_code_url: {{ (payment.qr_code_image_url if payment.qr_code_path else "")|tojson }},
+        sort_order: {{ payment.sort_order or 0 }},
+        is_active: {{ 'true' if payment.is_active else 'false' }},
+        created_at: {{ (payment.created_at.strftime('%Y-%m-%d %H:%M') if payment.created_at else "")|tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+addPaymentConfig() {
+    window.location.href = '{{ url_for('admin.create_payment_config') }}';
+},
+
+editPaymentConfig(configId) {
+    window.location.href = `/admin/payment_config/${configId}/edit`;
+},
+
+togglePaymentStatus(configId, currentStatus) {
+    const action = currentStatus ? '禁用' : '启用';
+    this.$confirm(`此操作将${action}该收款码配置, 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        window.location.href = `/admin/payment_config/${configId}/toggle`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+deletePaymentConfig(configId, paymentName) {
+    this.$confirm(`此操作将永久删除收款码 "${paymentName}", 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        this.$message({
+            type: 'success',
+            message: '删除成功!'
+        });
+        window.location.href = `/admin/payment_config/${configId}/delete`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消删除'
+        });
+    });
+},
+
+previewQRCode(imageUrl, title) {
+    this.previewImageUrl = imageUrl;
+    this.previewTitle = title;
+    this.qrPreviewVisible = true;
+},
+
+refreshList() {
+    this.$message.success('正在刷新列表...');
+    window.location.reload();
+}
+{% endblock %}

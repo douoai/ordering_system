@@ -1,0 +1,261 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}推送配置管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}pushdeer{% endblock %}
+
+{% block page_icon %}<i class="fas fa-bell"></i>{% endblock %}
+{% block page_title %}推送配置管理{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="addConfig">
+    添加配置
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 推送配置列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> PushDeer配置列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ configs.total }} 个配置</el-tag>
+        </div>
+    </div>
+
+    {% if configs.items %}
+    <el-table :data="configsData" style="width: 100%" stripe>
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="name" label="配置名称" min-width="150">
+            <template slot-scope="scope">
+                <el-tag type="primary" size="small">{{ "{{ scope.row.name }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="endpoint" label="推送端点" min-width="200">
+            <template slot-scope="scope">
+                <span style="color: #909399; font-family: monospace; font-size: 12px;">{{ "{{ scope.row.endpoint }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="pushkey" label="PushKey" min-width="150">
+            <template slot-scope="scope">
+                <span style="color: #909399; font-family: monospace; font-size: 12px;">
+                    {{ "{{ scope.row.pushkey.substring(0, 8) + '...' }}" }}
+                </span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="events" label="推送事件" min-width="200">
+            <template slot-scope="scope">
+                <el-tag v-for="event in scope.row.events" :key="event" type="success" size="mini" style="margin: 2px;">
+                    {{ "{{ event }}" }}
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_active ? 'success' : 'danger'" size="small">
+                    <span v-if="scope.row.is_active">启用</span>
+                    <span v-else>禁用</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="250">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="editConfig(scope.row.id)">
+                    编辑
+                </el-button>
+                <el-button type="text" size="small" style="color: #E6A23C;" 
+                           @click="testConfig(scope.row.id, scope.row.name)">
+                    测试
+                </el-button>
+                <el-button type="text" size="small" 
+                           :style="{color: scope.row.is_active ? '#F56C6C' : '#67C23A'}"
+                           @click="toggleConfigStatus(scope.row.id, scope.row.is_active)">
+                    <span v-if="scope.row.is_active">禁用</span>
+                    <span v-else>启用</span>
+                </el-button>
+                <el-button type="text" size="small" 
+                           style="color: #F56C6C;" 
+                           @click="deleteConfig(scope.row.id, scope.row.name)">
+                    删除
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    {% if configs.pages > 1 %}
+    <div style="text-align: center; margin-top: 20px;">
+        <el-pagination
+            @current-change="handlePageChange"
+            :current-page="{{ configs.page }}"
+            :page-size="{{ configs.per_page }}"
+            :total="{{ configs.total }}"
+            layout="prev, pager, next, jumper, total">
+        </el-pagination>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <el-empty description="暂无推送配置">
+        <el-button type="primary" @click="addConfig">添加第一个配置</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 使用说明 -->
+<el-card style="margin-top: 20px;">
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-info-circle"></i> 使用说明
+        </span>
+    </div>
+    
+    <el-alert
+        title="PushDeer推送配置说明"
+        type="info"
+        :closable="false">
+        <div slot="description">
+            <p><strong>1. 获取PushKey：</strong>访问 <a href="https://pushdeer.com" target="_blank">pushdeer.com</a> 注册账号并获取PushKey</p>
+            <p><strong>2. 配置事件：</strong>选择需要推送的订单事件（新订单、确认、取消、退款）</p>
+            <p><strong>3. 测试推送：</strong>添加配置后可点击"测试"按钮验证推送是否正常</p>
+            <p><strong>4. 启用配置：</strong>确认测试无误后启用配置，系统将自动推送相关事件</p>
+        </div>
+    </el-alert>
+</el-card>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+configsData: [
+    {% if configs.items %}
+    {% for config in configs.items %}
+    {
+        id: {{ config.id }},
+        name: {{ config.name|tojson }},
+        endpoint: {{ config.endpoint|tojson }},
+        pushkey: {{ config.pushkey|tojson }},
+        events: [
+            {% set events_config = config.get_events_config() %}
+            {% set enabled_events = [] %}
+            {% if events_config.new_order.enabled %}{% set _ = enabled_events.append('新订单') %}{% endif %}
+            {% if events_config.order_confirmed.enabled %}{% set _ = enabled_events.append('订单确认') %}{% endif %}
+            {% if events_config.order_cancelled.enabled %}{% set _ = enabled_events.append('订单取消') %}{% endif %}
+            {% if events_config.order_refunded.enabled %}{% set _ = enabled_events.append('订单退款') %}{% endif %}
+            {% for event in enabled_events %}{{ event|tojson }}{% if not loop.last %},{% endif %}{% endfor %}
+        ],
+        is_active: {{ 'true' if config.is_active else 'false' }},
+        created_at: {{ config.created_at.strftime('%Y-%m-%d %H:%M')|tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+]
+{% endblock %}
+
+{% block vue_methods %}
+addConfig() {
+    window.location.href = '{{ url_for('admin.add_pushdeer_config') }}';
+},
+
+editConfig(configId) {
+    window.location.href = `/admin/pushdeer/${configId}/edit`;
+},
+
+testConfig(configId, configName) {
+    this.$confirm(`此操作将向配置 "${configName}" 发送测试推送, 是否继续?`, '测试推送', {
+        confirmButtonText: '发送测试',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        // 提交测试表单
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/pushdeer/${configId}/test`;
+        document.body.appendChild(form);
+        form.submit();
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消测试'
+        });
+    });
+},
+
+toggleConfigStatus(configId, currentStatus) {
+    const action = currentStatus ? '禁用' : '启用';
+    this.$confirm(`此操作将${action}该配置, 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        window.location.href = `/admin/pushdeer/${configId}/toggle`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+deleteConfig(configId, configName) {
+    this.$confirm(`此操作将永久删除配置 "${configName}", 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        this.$message({
+            type: 'success',
+            message: '删除成功!'
+        });
+        // 提交删除表单
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/pushdeer/${configId}/delete`;
+        document.body.appendChild(form);
+        form.submit();
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消删除'
+        });
+    });
+},
+
+handlePageChange(page) {
+    window.location.href = `{{ url_for('admin.pushdeer_configs') }}?page=${page}`;
+},
+
+refreshList() {
+    this.$message.success('正在刷新列表...');
+    window.location.reload();
+}
+{% endblock %}

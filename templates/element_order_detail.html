@@ -1,0 +1,392 @@
+{% extends "element_base.html" %}
+
+{% block title %}订单详情 - 发财小狗饮品店{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-receipt"></i>
+        订单详情
+    </h1>
+    <p class="page-description">订单号：#{{ order.id }}</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="orderDetailApp">
+    <!-- 订单基本信息 -->
+    <el-card class="mb-3">
+        <div slot="header" class="clearfix">
+            <span><i class="fas fa-info-circle"></i> 订单信息</span>
+        </div>
+        
+        <el-row :gutter="20">
+            <el-col :span="12">
+                <div class="info-item">
+                    <label>订单号：</label>
+                    <span class="fw-bold">#{{ order.id }}</span>
+                </div>
+                <div class="info-item">
+                    <label>下单时间：</label>
+                    <span>{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                </div>
+                <div class="info-item">
+                    <label>订单状态：</label>
+                    <el-tag 
+                        :type="getOrderStatusType('{{ order.status }}')"
+                        size="small">
+                        {{ order.status_display }}
+                    </el-tag>
+                </div>
+            </el-col>
+            <el-col :span="12">
+                <div class="info-item">
+                    <label>客户姓名：</label>
+                    <span>{{ user.username }}</span>
+                </div>
+                <div class="info-item">
+                    <label>联系电话：</label>
+                    <span>{{ user.phone }}</span>
+                </div>
+                <div class="info-item">
+                    <label>订单金额：</label>
+                    <span class="text-primary fw-bold fs-5">¥{{ "%.2f"|format(order.total_amount) }}</span>
+                </div>
+            </el-col>
+        </el-row>
+    </el-card>
+
+    <!-- 订单商品信息 -->
+    <el-card class="mb-3">
+        <div slot="header" class="clearfix">
+            <span><i class="fas fa-shopping-cart"></i> 商品信息</span>
+        </div>
+        
+        <el-table :data="orderItems" style="width: 100%">
+            <el-table-column prop="product_name" label="饮品" min-width="120">
+                <template slot-scope="scope">
+                    <div class="product-info">
+                        <div class="product-name">{{ "{{ scope.row.product_name }}" }}</div>
+                        {% if scope.row.notes %}
+                        <div class="product-notes text-muted small">{{ "{{ scope.row.notes }}" }}</div>
+                        {% endif %}
+                    </div>
+                </template>
+            </el-table-column>
+            
+            <el-table-column prop="temperature" label="温度" width="80">
+                <template slot-scope="scope">
+                    <el-tag size="mini" type="info">
+                        {{ "{{ scope.row.temperature || '常温' }}" }}
+                    </el-tag>
+                </template>
+            </el-table-column>
+            
+            <el-table-column prop="unit_price" label="单价" width="80">
+                <template slot-scope="scope">
+                    ¥{{ "{{ scope.row.unit_price.toFixed(2) }}" }}
+                </template>
+            </el-table-column>
+            
+            <el-table-column prop="quantity" label="数量" width="60">
+                <template slot-scope="scope">
+                    <el-tag type="warning" size="mini">
+                        {{ "{{ scope.row.quantity }}" }}
+                    </el-tag>
+                </template>
+            </el-table-column>
+            
+            <el-table-column prop="subtotal" label="小计" width="80">
+                <template slot-scope="scope">
+                    <span class="fw-bold">¥{{ "{{ scope.row.subtotal.toFixed(2) }}" }}</span>
+                </template>
+            </el-table-column>
+        </el-table>
+        
+        <div class="text-end mt-3">
+            <span class="fs-5">
+                <strong>总计：<span class="text-primary">¥{{ "%.2f"|format(order.total_amount) }}</span></strong>
+            </span>
+        </div>
+    </el-card>
+
+    <!-- 订单备注 -->
+    {% if order.notes %}
+    <el-card class="mb-3">
+        <div slot="header" class="clearfix">
+            <span><i class="fas fa-comment"></i> 订单备注</span>
+        </div>
+        <p class="mb-0">{{ order.notes }}</p>
+    </el-card>
+    {% endif %}
+
+    <!-- 退款信息 -->
+    {% if order.refund_reason %}
+    <el-card class="mb-3">
+        <div slot="header" class="clearfix">
+            <span>
+                {% if order.refund_status == 'pending' %}
+                <i class="fas fa-clock text-warning"></i> 退款申请
+                {% elif order.refund_status == 'approved' %}
+                <i class="fas fa-check-circle text-success"></i> 退款已批准
+                {% elif order.refund_status == 'completed' %}
+                <i class="fas fa-check-double text-success"></i> 退款已完成
+                {% elif order.refund_status == 'rejected' %}
+                <i class="fas fa-times-circle text-danger"></i> 退款已拒绝
+                {% else %}
+                <i class="fas fa-undo text-info"></i> 退款信息
+                {% endif %}
+            </span>
+        </div>
+        
+        <div class="refund-info">
+            <p><strong>退款原因：</strong>{{ order.refund_reason }}</p>
+            {% if order.refund_status %}
+            <div class="refund-details">
+                <p><strong>状态：</strong>{{ order.refund_status_display }}</p>
+                <p><strong>申请时间：</strong>{{ order.refunded_at.strftime('%Y-%m-%d %H:%M:%S') if order.refunded_at }}</p>
+                {% if order.refund_approved_by %}
+                <p><strong>处理人：</strong>{{ order.refund_approved_by }}</p>
+                <p><strong>处理时间：</strong>{{ order.refund_approved_at.strftime('%Y-%m-%d %H:%M:%S') if order.refund_approved_at }}</p>
+                {% endif %}
+                {% if order.refund_admin_notes %}
+                <p><strong>管理员备注：</strong>{{ order.refund_admin_notes }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </el-card>
+    {% endif %}
+
+    <!-- 取消信息 -->
+    {% if order.cancel_reason %}
+    <el-card class="mb-3">
+        <div slot="header" class="clearfix">
+            <span>
+                {% if order.is_cancelled %}
+                <i class="fas fa-times-circle text-danger"></i> 取消原因
+                {% elif order.is_cancel_pending %}
+                <i class="fas fa-clock text-warning"></i> 取消申请
+                {% endif %}
+            </span>
+        </div>
+        
+        <div class="cancel-info">
+            <p><strong>取消原因：</strong>{{ order.cancel_reason }}</p>
+            <div class="cancel-details">
+                <p><strong>申请人：</strong>{{ order.cancelled_by }}</p>
+                {% if order.cancelled_at %}
+                <p><strong>申请时间：</strong>{{ order.cancelled_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                {% endif %}
+                {% if order.cancel_approved_by %}
+                <p><strong>审批人：</strong>{{ order.cancel_approved_by }}</p>
+                <p><strong>审批时间：</strong>{{ order.cancel_approved_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </el-card>
+    {% endif %}
+
+    <!-- 操作按钮区域 -->
+    <el-card>
+        <div slot="header" class="clearfix">
+            <span><i class="fas fa-cogs"></i> 操作</span>
+        </div>
+        
+        <div class="action-buttons">
+            {% if order.status == 'pending' %}
+                <!-- 待确认状态：立即支付 + 取消订单 + 返回首页 -->
+                <el-row :gutter="10">
+                    <el-col :span="8">
+                        <el-button type="success" size="large" @click="goToPayment" class="w-100">
+                            <i class="fas fa-credit-card"></i> 立即支付
+                        </el-button>
+                    </el-col>
+                    <el-col :span="8">
+                        <el-button type="danger" size="large" @click="cancelOrder" class="w-100">
+                            <i class="fas fa-times-circle"></i> 取消订单
+                        </el-button>
+                    </el-col>
+                    <el-col :span="8">
+                        <el-button type="info" size="large" @click="goToHome" class="w-100">
+                            <i class="fas fa-home"></i> 返回首页
+                        </el-button>
+                    </el-col>
+                </el-row>
+            {% elif order.can_refund %}
+                <!-- 可退款状态（已支付）：申请退款 + 我的订单 + 返回首页 -->
+                <el-row :gutter="10">
+                    <el-col :span="8">
+                        <el-button type="warning" size="large" @click="applyRefund" class="w-100">
+                            <i class="fas fa-undo"></i> 申请退款
+                        </el-button>
+                    </el-col>
+                    <el-col :span="8">
+                        <el-button type="primary" size="large" @click="goToMyOrders" class="w-100">
+                            <i class="fas fa-list"></i> 我的订单
+                        </el-button>
+                    </el-col>
+                    <el-col :span="8">
+                        <el-button type="info" size="large" @click="goToHome" class="w-100">
+                            <i class="fas fa-home"></i> 返回首页
+                        </el-button>
+                    </el-col>
+                </el-row>
+            {% elif order.can_cancel %}
+                <!-- 可取消状态（已确认但未支付）：申请取消 + 我的订单 + 返回首页 -->
+                <el-row :gutter="10">
+                    <el-col :span="8">
+                        <el-button type="warning" size="large" @click="cancelOrder" class="w-100">
+                            <i class="fas fa-times-circle"></i> 申请取消
+                        </el-button>
+                    </el-col>
+                    <el-col :span="8">
+                        <el-button type="primary" size="large" @click="goToMyOrders" class="w-100">
+                            <i class="fas fa-list"></i> 我的订单
+                        </el-button>
+                    </el-col>
+                    <el-col :span="8">
+                        <el-button type="info" size="large" @click="goToHome" class="w-100">
+                            <i class="fas fa-home"></i> 返回首页
+                        </el-button>
+                    </el-col>
+                </el-row>
+            {% else %}
+                <!-- 其他状态：我的订单 + 返回首页 -->
+                <el-row :gutter="10">
+                    <el-col :span="12">
+                        <el-button type="primary" size="large" @click="goToMyOrders" class="w-100">
+                            <i class="fas fa-list"></i> 我的订单
+                        </el-button>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-button type="info" size="large" @click="goToHome" class="w-100">
+                            <i class="fas fa-home"></i> 返回首页
+                        </el-button>
+                    </el-col>
+                </el-row>
+            {% endif %}
+        </div>
+    </el-card>
+</div>
+{% endblock %}
+
+{% block vue_data %}
+orderItems: {{ order.order_items | tojson | safe }}.map(item => ({
+    product_name: item.product.name,
+    temperature: item.temperature,
+    unit_price: item.unit_price,
+    quantity: item.quantity,
+    subtotal: item.subtotal,
+    notes: item.notes
+}))
+{% endblock %}
+
+{% block vue_methods %}
+getOrderStatusType(status) {
+    const statusMap = {
+        'pending': 'warning',
+        'confirmed': 'success',
+        'paid': 'primary',
+        'completed': 'success',
+        'rejected': 'danger',
+        'cancelled': 'info',
+        'refunded': 'info'
+    };
+    return statusMap[status] || 'info';
+},
+
+goToPayment() {
+    window.location.href = `{{ url_for('main.payment', order_id=order.id) }}`;
+},
+
+goToHome() {
+    window.location.href = `{{ url_for('main.index') }}`;
+},
+
+goToMyOrders() {
+    window.location.href = `{{ url_for('main.my_orders') }}`;
+},
+
+cancelOrder() {
+    this.$confirm('此操作将取消该订单, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        this.$message({
+            type: 'success',
+            message: '正在跳转到取消页面!'
+        });
+        window.location.href = `{{ url_for('main.cancel_order', order_id=order.id) }}`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+},
+
+applyRefund() {
+    this.$confirm('此操作将申请退款, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        this.$message({
+            type: 'success',
+            message: '正在跳转到退款页面!'
+        });
+        window.location.href = `{{ url_for('main.refund_order', order_id=order.id) }}`;
+    }).catch(() => {
+        this.$message({
+            type: 'info',
+            message: '已取消操作'
+        });
+    });
+}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.info-item {
+    margin-bottom: 10px;
+}
+
+.info-item label {
+    font-weight: 600;
+    color: #606266;
+    margin-right: 8px;
+}
+
+.product-info .product-name {
+    font-weight: 600;
+    color: #303133;
+}
+
+.product-info .product-notes {
+    margin-top: 4px;
+    font-size: 12px;
+}
+
+.action-buttons .w-100 {
+    width: 100% !important;
+}
+
+.refund-info, .cancel-info {
+    line-height: 1.6;
+}
+
+.refund-details, .cancel-details {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #ebeef5;
+}
+
+@media (max-width: 768px) {
+    .action-buttons .el-col {
+        margin-bottom: 10px;
+    }
+}
+</style>
+{% endblock %}

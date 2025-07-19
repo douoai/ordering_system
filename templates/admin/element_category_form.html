@@ -1,0 +1,363 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}{{ action }}分类 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}categories{% endblock %}
+
+{% block page_icon %}<i class="fas fa-tags"></i>{% endblock %}
+{% block page_title %}{{ action }}分类{% endblock %}
+
+{% block page_actions %}
+<el-button @click="goBack">
+    <i class="fas fa-arrow-left"></i> 返回列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <el-row :gutter="20">
+        <el-col :lg="16" :md="24">
+            <el-card>
+                <div slot="header" class="clearfix">
+                    <span style="font-weight: 600;">
+                        <i class="fas fa-edit"></i> {{ action }}分类信息
+                    </span>
+                </div>
+                
+                <el-form 
+                    :model="categoryForm" 
+                    :rules="formRules" 
+                    ref="categoryForm" 
+                    label-width="120px"
+                    @submit.native.prevent="submitForm">
+                    
+                    <el-form-item label="分类名称" prop="name">
+                        <el-input 
+                            v-model="categoryForm.name" 
+                            placeholder="请输入分类名称"
+                            maxlength="50"
+                            show-word-limit>
+                        </el-input>
+                    </el-form-item>
+                    
+                    <el-form-item label="分类描述" prop="description">
+                        <el-input
+                            v-model="categoryForm.description"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="请输入分类描述"
+                            maxlength="200"
+                            show-word-limit>
+                        </el-input>
+                    </el-form-item>
+                    
+                    <el-form-item label="分类图标">
+                        <el-select 
+                            v-model="categoryForm.icon" 
+                            placeholder="请选择分类图标"
+                            filterable
+                            style="width: 100%;">
+                            <el-option
+                                v-for="icon in iconOptions"
+                                :key="icon.value"
+                                :label="icon.label"
+                                :value="icon.value">
+                                <span style="float: left">
+                                    <i :class="icon.value" style="margin-right: 8px;"></i>
+                                    {{ icon.label }}
+                                </span>
+                            </el-option>
+                        </el-select>
+                        <div class="icon-preview" v-if="categoryForm.icon">
+                            <span>预览：</span>
+                            <i :class="categoryForm.icon" style="font-size: 24px; color: #409EFF; margin-left: 10px;"></i>
+                        </div>
+                    </el-form-item>
+                    
+                    <el-form-item label="分类颜色">
+                        <el-color-picker 
+                            v-model="categoryForm.color"
+                            :predefine="colorPresets">
+                        </el-color-picker>
+                        <span style="margin-left: 10px; color: #606266;">选择分类的主题颜色</span>
+                    </el-form-item>
+                    
+                    <el-form-item label="排序顺序" prop="sort_order">
+                        <el-input-number
+                            v-model="categoryForm.sort_order"
+                            :min="0"
+                            :max="999"
+                            placeholder="排序顺序">
+                        </el-input-number>
+                        <span style="margin-left: 10px; color: #606266;">数字越小排序越靠前</span>
+                    </el-form-item>
+                    
+                    <el-form-item label="分类状态">
+                        <el-switch
+                            v-model="categoryForm.is_active"
+                            active-text="启用"
+                            inactive-text="禁用">
+                        </el-switch>
+                    </el-form-item>
+                    
+                    <el-form-item>
+                        <el-button 
+                            type="primary" 
+                            @click="submitForm" 
+                            :loading="submitting"
+                            size="large">
+                            <i class="fas fa-save"></i> {{ action }}分类
+                        </el-button>
+                        <el-button @click="goBack" size="large">
+                            <i class="fas fa-times"></i> 取消
+                        </el-button>
+                    </el-form-item>
+                </el-form>
+            </el-card>
+        </el-col>
+        
+        <el-col :lg="8" :md="24">
+            <!-- 分类预览 -->
+            <el-card>
+                <div slot="header" class="clearfix">
+                    <span style="font-weight: 600;">
+                        <i class="fas fa-eye"></i> 分类预览
+                    </span>
+                </div>
+                
+                <div class="category-preview">
+                    <div class="preview-item" :style="{ backgroundColor: categoryForm.color || '#409EFF' }">
+                        <i :class="categoryForm.icon || 'fas fa-tag'" class="preview-icon"></i>
+                        <div class="preview-content">
+                            <div class="preview-name">{{ categoryForm.name || '分类名称' }}</div>
+                            <div class="preview-desc">{{ categoryForm.description || '分类描述' }}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="preview-tips">
+                    <h4>预览说明</h4>
+                    <ul>
+                        <li>上方显示分类在前台的展示效果</li>
+                        <li>图标和颜色会影响用户体验</li>
+                        <li>建议选择与分类内容相关的图标</li>
+                        <li>颜色建议选择对比度适中的色彩</li>
+                    </ul>
+                </div>
+            </el-card>
+            
+            <!-- 关联产品 -->
+            {% if category and category.related_products %}
+            <el-card style="margin-top: 20px;">
+                <div slot="header" class="clearfix">
+                    <span style="font-weight: 600;">
+                        <i class="fas fa-coffee"></i> 关联产品 ({{ category.related_products|length }})
+                    </span>
+                </div>
+                
+                <div class="related-products">
+                    {% for product in category.related_products %}
+                    <div class="product-item">
+                        <div class="product-info">
+                            <div class="product-name">{{ product.name }}</div>
+                            <div class="product-price">¥{{ "%.2f"|format(product.price) }}</div>
+                        </div>
+                        <div class="product-status">
+                            {% if product.is_available %}
+                            <el-tag type="success" size="mini">上架</el-tag>
+                            {% else %}
+                            <el-tag type="danger" size="mini">下架</el-tag>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </el-card>
+            {% endif %}
+        </el-col>
+    </el-row>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.icon-preview {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f5f7fa;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.category-preview {
+    margin-bottom: 20px;
+}
+
+.preview-item {
+    padding: 20px;
+    border-radius: 12px;
+    color: white;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+
+.preview-icon {
+    font-size: 32px;
+    margin-right: 15px;
+    opacity: 0.9;
+}
+
+.preview-content {
+    flex: 1;
+}
+
+.preview-name {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.preview-desc {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+.preview-tips {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #409EFF;
+}
+
+.preview-tips h4 {
+    margin: 0 0 10px 0;
+    color: #303133;
+    font-size: 14px;
+}
+
+.preview-tips ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #606266;
+    font-size: 12px;
+}
+
+.preview-tips li {
+    margin-bottom: 5px;
+}
+
+.related-products {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.product-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.product-item:last-child {
+    border-bottom: none;
+}
+
+.product-name {
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 2px;
+}
+
+.product-price {
+    color: #E6A23C;
+    font-size: 12px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+categoryForm: {
+    name: {{ (category.name if category else "")|tojson }},
+    description: {{ (category.description if category else "")|tojson }},
+    icon: {{ (category.icon if category else "fas fa-tag")|tojson }},
+    color: {{ (category.color if category else "#409EFF")|tojson }},
+    sort_order: {{ category.sort_order if category else 0 }},
+    is_active: {{ 'true' if category and category.is_active else 'true' }}
+},
+submitting: false,
+iconOptions: [
+    { value: 'fas fa-coffee', label: '咖啡' },
+    { value: 'fas fa-wine-glass', label: '饮品' },
+    { value: 'fas fa-ice-cream', label: '冰淇淋' },
+    { value: 'fas fa-cookie-bite', label: '小食' },
+    { value: 'fas fa-birthday-cake', label: '蛋糕' },
+    { value: 'fas fa-apple-alt', label: '水果' },
+    { value: 'fas fa-leaf', label: '茶叶' },
+    { value: 'fas fa-fire', label: '热饮' },
+    { value: 'fas fa-snowflake', label: '冷饮' },
+    { value: 'fas fa-star', label: '特色' },
+    { value: 'fas fa-heart', label: '推荐' },
+    { value: 'fas fa-tag', label: '标签' }
+],
+colorPresets: [
+    '#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399',
+    '#ff4500', '#ff8c00', '#ffd700', '#90ee90', '#00ced1',
+    '#1e90ff', '#c71585', '#ff1493', '#00ff00', '#ffff00'
+],
+formRules: {
+    name: [
+        { required: true, message: '请输入分类名称', trigger: 'blur' },
+        { min: 1, max: 50, message: '分类名称长度在 1 到 50 个字符', trigger: 'blur' }
+    ],
+    sort_order: [
+        { type: 'number', min: 0, max: 999, message: '排序顺序必须在 0 到 999 之间', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+submitForm() {
+    this.$refs.categoryForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+            
+            const formData = new FormData();
+            Object.keys(this.categoryForm).forEach(key => {
+                formData.append(key, this.categoryForm[key]);
+            });
+            
+            const url = {{ ('"/admin/category/" + category.id|string + "/edit"' if category else '"/admin/category/add"')|safe }};
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success('{{ action }}分类成功！');
+                    setTimeout(() => {
+                        window.location.href = '/admin/categories';
+                    }, 1000);
+                } else {
+                    this.$message.error(data.message || '{{ action }}分类失败');
+                }
+            }).catch(error => {
+                this.$message.error('网络错误，请重试');
+            }).finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+goBack() {
+    window.location.href = '/admin/categories';
+}
+{% endblock %}

@@ -1,0 +1,467 @@
+{% extends "admin/element_base.html" %}
+
+{% block title %}角色管理 - 发财小狗饮品店{% endblock %}
+{% block active_menu %}admin_roles{% endblock %}
+
+{% block page_icon %}<i class="fas fa-user-tag"></i>{% endblock %}
+{% block page_title %}角色管理{% endblock %}
+
+{% block page_actions %}
+<el-button type="primary" icon="el-icon-plus" @click="showAddDialog">
+    添加角色
+</el-button>
+<el-button type="info" icon="el-icon-refresh" @click="refreshList">
+    刷新列表
+</el-button>
+{% endblock %}
+
+{% block content %}
+<!-- 角色列表 -->
+<el-card>
+    <div slot="header" class="clearfix">
+        <span style="font-weight: 600;">
+            <i class="fas fa-list"></i> 角色列表
+        </span>
+        <div style="float: right;">
+            <el-tag type="info">共 {{ roles|length }} 个角色</el-tag>
+        </div>
+    </div>
+
+    {% if roles %}
+    <el-table :data="rolesData" style="width: 100%" stripe>
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="name" label="角色名称" min-width="150">
+            <template slot-scope="scope">
+                <el-tag type="primary" size="small">{{ "{{ scope.row.name }}" }}</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="description" label="角色描述" min-width="200">
+            <template slot-scope="scope">
+                <span style="color: #606266;">{{ "{{ scope.row.description || '无描述' }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column prop="permissions_count" label="权限数量" width="120">
+            <template slot-scope="scope">
+                <el-tag type="success" size="small">{{ "{{ scope.row.permissions_count }}" }} 个</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="users_count" label="用户数量" width="120">
+            <template slot-scope="scope">
+                <el-tag type="info" size="small">{{ "{{ scope.row.users_count }}" }} 人</el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="is_active" label="状态" width="100">
+            <template slot-scope="scope">
+                <el-tag :type="scope.row.is_active ? 'success' : 'danger'" size="small">
+                    <span v-if="scope.row.is_active">启用</span>
+                    <span v-else>禁用</span>
+                </el-tag>
+            </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="150">
+            <template slot-scope="scope">
+                <span style="font-size: 12px;">{{ "{{ scope.row.created_at }}" }}</span>
+            </template>
+        </el-table-column>
+        <el-table-column label="操作" width="250">
+            <template slot-scope="scope">
+                <el-button type="text" size="small" @click="editRole(scope.row.id)">
+                    <i class="fas fa-edit"></i> 编辑
+                </el-button>
+                <el-button type="text" size="small" @click="managePermissions(scope.row.id)">
+                    <i class="fas fa-key"></i> 权限
+                </el-button>
+                <el-button type="text" size="small" 
+                           :style="{color: scope.row.is_active ? '#F56C6C' : '#67C23A'}"
+                           @click="toggleRoleStatus(scope.row.id, scope.row.is_active)">
+                    <span v-if="scope.row.is_active">禁用</span>
+                    <span v-else>启用</span>
+                </el-button>
+                <el-button type="text" size="small" 
+                           style="color: #F56C6C;" 
+                           @click="deleteRole(scope.row.id, scope.row.name)">
+                    <i class="fas fa-trash"></i> 删除
+                </el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+
+    {% else %}
+    <el-empty description="暂无角色数据">
+        <el-button type="primary" @click="showAddDialog">添加第一个角色</el-button>
+    </el-empty>
+    {% endif %}
+</el-card>
+
+<!-- 添加/编辑角色弹窗 -->
+<el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="500px" @close="resetForm">
+    <el-form :model="roleForm" :rules="formRules" ref="roleForm" label-width="100px">
+        <el-form-item label="角色名称" prop="name">
+            <el-input v-model="roleForm.name" placeholder="请输入角色名称"></el-input>
+        </el-form-item>
+        
+        <el-form-item label="角色描述">
+            <el-input
+                type="textarea"
+                v-model="roleForm.description"
+                placeholder="请输入角色描述"
+                :rows="3"
+                maxlength="200"
+                show-word-limit>
+            </el-input>
+        </el-form-item>
+        
+        <el-form-item label="角色状态">
+            <el-switch
+                v-model="roleForm.is_active"
+                active-text="启用"
+                inactive-text="禁用">
+            </el-switch>
+        </el-form-item>
+    </el-form>
+    
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">
+            <span v-if="isEdit">更 新</span>
+                    <span v-else>添 加</span>
+        </el-button>
+    </div>
+</el-dialog>
+
+<!-- 权限管理弹窗 -->
+<el-dialog title="权限管理" :visible.sync="permissionDialogVisible" width="800px">
+    <div v-if="currentRole">
+        <div style="margin-bottom: 20px;">
+            <span style="font-weight: bold;">角色：</span>{{ "{{ currentRole.name }}" }}
+            <span style="margin-left: 20px; color: #909399;">{{ "{{ currentRole.description }}" }}</span>
+        </div>
+        
+        <el-form>
+            <el-form-item label="权限选择">
+                <el-tree
+                    ref="permissionTree"
+                    :data="permissionTreeData"
+                    :props="treeProps"
+                    show-checkbox
+                    node-key="id"
+                    :default-checked-keys="selectedPermissions">
+                </el-tree>
+            </el-form-item>
+        </el-form>
+    </div>
+    
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="permissionDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="savePermissions" :loading="savingPermissions">保 存</el-button>
+    </div>
+</el-dialog>
+
+<!-- 删除确认弹窗 -->
+<el-dialog title="删除确认" :visible.sync="deleteDialogVisible" width="400px">
+    <div style="text-align: center;">
+        <i class="el-icon-warning" style="font-size: 48px; color: #E6A23C; margin-bottom: 20px;"></i>
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            确定要删除角色 <strong>"{{ deleteRoleName }}"</strong> 吗？
+        </p>
+        <p style="color: #F56C6C; font-size: 14px; margin-bottom: 10px;">
+            该角色下有 <strong>{{ deleteRoleUsersCount }}</strong> 个用户
+        </p>
+        <p style="color: #909399; font-size: 14px;">
+            删除后这些用户将失去该角色的权限，此操作不可恢复！
+        </p>
+    </div>
+    <div slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">取 消</el-button>
+        <el-button type="danger" @click="confirmDelete" :loading="deleting">确 定</el-button>
+    </div>
+</el-dialog>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.el-table .el-table__cell {
+    padding: 8px 0;
+}
+
+.el-tag {
+    margin: 2px;
+}
+
+.clearfix:before,
+.clearfix:after {
+    display: table;
+    content: "";
+}
+
+.clearfix:after {
+    clear: both;
+}
+
+.dialog-footer {
+    text-align: right;
+}
+
+.el-dialog__body {
+    padding: 20px;
+}
+</style>
+{% endblock %}
+
+{% block vue_data %}
+rolesData: [
+    {% if roles %}
+    {% for role in roles %}
+    {
+        id: {{ role.id }},
+        name: '{{ role.name }}',
+        description: '{{ role.description or "" }}',
+        permissions_count: {{ role.permissions|length if role.permissions else 0 }},
+        users_count: {{ role.admin_users|length if role.admin_users else 0 }},
+        is_active: {{ 'true' if role.is_active else 'false' }},
+        created_at: '{{ role.created_at.strftime('%Y-%m-%d %H:%M') }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+],
+dialogVisible: false,
+permissionDialogVisible: false,
+deleteDialogVisible: false,
+dialogTitle: '添加角色',
+isEdit: false,
+submitting: false,
+savingPermissions: false,
+deleting: false,
+currentRole: null,
+deleteRoleId: null,
+deleteRoleName: '',
+deleteRoleUsersCount: 0,
+selectedPermissions: [],
+permissionTreeData: [],
+treeProps: {
+    children: 'children',
+    label: 'label'
+},
+roleForm: {
+    id: null,
+    name: '',
+    description: '',
+    is_active: true
+},
+formRules: {
+    name: [
+        { required: true, message: '请输入角色名称', trigger: 'blur' },
+        { min: 2, max: 50, message: '角色名称长度在 2 到 50 个字符', trigger: 'blur' }
+    ]
+}
+{% endblock %}
+
+{% block vue_methods %}
+// 显示添加角色弹窗
+showAddDialog() {
+    this.dialogTitle = '添加角色';
+    this.isEdit = false;
+    this.resetForm();
+    this.dialogVisible = true;
+},
+
+// 编辑角色
+editRole(roleId) {
+    this.dialogTitle = '编辑角色';
+    this.isEdit = true;
+    this.loadRoleData(roleId);
+    this.dialogVisible = true;
+},
+
+// 加载角色数据
+loadRoleData(roleId) {
+    const role = this.rolesData.find(r => r.id === roleId);
+    if (role) {
+        this.roleForm = {
+            id: role.id,
+            name: role.name,
+            description: role.description,
+            is_active: role.is_active
+        };
+    }
+},
+
+// 提交表单
+submitForm() {
+    this.$refs.roleForm.validate((valid) => {
+        if (valid) {
+            this.submitting = true;
+            
+            const formData = new FormData();
+            Object.keys(this.roleForm).forEach(key => {
+                if (key !== 'id') {
+                    formData.append(key, this.roleForm[key]);
+                }
+            });
+            
+            const url = this.isEdit ? `/admin/api/admin_role/${this.roleForm.id}/edit` : '/admin/api/admin_role/add';
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.$message.success(data.message);
+                    this.dialogVisible = false;
+                    this.refreshList();
+                } else {
+                    this.$message.error(data.message || '操作失败');
+                }
+            })
+            .catch(error => {
+                this.$message.error('网络错误，请重试');
+            })
+            .finally(() => {
+                this.submitting = false;
+            });
+        }
+    });
+},
+
+// 管理权限
+managePermissions(roleId) {
+    this.currentRole = this.rolesData.find(r => r.id === roleId);
+    if (this.currentRole) {
+        // 加载权限数据
+        this.loadPermissions(roleId);
+        this.permissionDialogVisible = true;
+    }
+},
+
+// 加载权限数据
+loadPermissions(roleId) {
+    fetch(`/admin/api/admin_role/${roleId}/permissions`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.permissionTreeData = data.permissions;
+                this.selectedPermissions = data.selected;
+            } else {
+                this.$message.error('加载权限数据失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
+},
+
+// 保存权限
+savePermissions() {
+    this.savingPermissions = true;
+    
+    const checkedKeys = this.$refs.permissionTree.getCheckedKeys();
+    const halfCheckedKeys = this.$refs.permissionTree.getHalfCheckedKeys();
+    const allKeys = [...checkedKeys, ...halfCheckedKeys];
+    
+    const formData = new FormData();
+    formData.append('permissions', JSON.stringify(allKeys));
+    
+    fetch(`/admin/api/admin_role/${this.currentRole.id}/permissions`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.permissionDialogVisible = false;
+            this.refreshList();
+        } else {
+            this.$message.error(data.message || '保存失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.savingPermissions = false;
+    });
+},
+
+// 切换角色状态
+toggleRoleStatus(roleId, currentStatus) {
+    const action = currentStatus ? '禁用' : '启用';
+    this.$confirm(`此操作将${action}该角色, 是否继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(() => {
+        fetch(`/admin/api/admin_role/${roleId}/toggle`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.$message.success(data.message);
+                this.refreshList();
+            } else {
+                this.$message.error(data.message || '操作失败');
+            }
+        })
+        .catch(error => {
+            this.$message.error('网络错误，请重试');
+        });
+    }).catch(() => {
+        this.$message.info('已取消操作');
+    });
+},
+
+// 删除角色
+deleteRole(roleId, roleName) {
+    const role = this.rolesData.find(r => r.id === roleId);
+    this.deleteRoleId = roleId;
+    this.deleteRoleName = roleName;
+    this.deleteRoleUsersCount = role ? role.users_count : 0;
+    this.deleteDialogVisible = true;
+},
+
+// 确认删除
+confirmDelete() {
+    this.deleting = true;
+    
+    fetch(`/admin/api/admin_role/${this.deleteRoleId}/delete`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            this.$message.success(data.message);
+            this.deleteDialogVisible = false;
+            this.refreshList();
+        } else {
+            this.$message.error(data.message || '删除失败');
+        }
+    })
+    .catch(error => {
+        this.$message.error('网络错误，请重试');
+    })
+    .finally(() => {
+        this.deleting = false;
+    });
+},
+
+// 重置表单
+resetForm() {
+    this.roleForm = {
+        id: null,
+        name: '',
+        description: '',
+        is_active: true
+    };
+    if (this.$refs.roleForm) {
+        this.$refs.roleForm.resetFields();
+    }
+},
+
+// 刷新列表
+refreshList() {
+    window.location.reload();
+}
+{% endblock %}

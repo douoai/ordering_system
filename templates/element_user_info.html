@@ -1,0 +1,372 @@
+{% extends "element_base.html" %}
+
+{% block title %}个人信息 - 发财小狗饮品店{% endblock %}
+
+{% block extra_css %}
+<style>
+.user-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.profile-header {
+    text-align: center;
+    padding: 30px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    margin-bottom: 30px;
+}
+
+.avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+    font-size: 32px;
+}
+
+.user-name {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.user-phone {
+    font-size: 16px;
+    opacity: 0.8;
+}
+
+.info-card {
+    margin-bottom: 20px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.card-header {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-section {
+    padding: 25px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border-radius: 12px;
+}
+
+.stat-number {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="app" class="user-container">
+    <!-- 用户头像和基本信息 -->
+    <div class="profile-header">
+        <div class="avatar">
+            <i class="fas fa-user"></i>
+        </div>
+        <div class="user-name">{{ user.username if user else '未登录用户' }}</div>
+        <div class="user-phone">{{ user.phone if user else '未设置手机号' }}</div>
+    </div>
+
+    <!-- 用户统计 -->
+    <el-card class="info-card">
+        <div class="card-header">
+            <i class="fas fa-chart-bar"></i> 我的统计
+        </div>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">{{ user_stats.total_orders }}</div>
+                <div class="stat-label">总订单数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">¥{{ "%.2f"|format(user_stats.total_spent) }}</div>
+                <div class="stat-label">总消费金额</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ user_stats.completed_orders }}</div>
+                <div class="stat-label">已完成订单</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ user_stats.favorite_product or '暂无' }}</div>
+                <div class="stat-label">最爱饮品</div>
+            </div>
+        </div>
+    </el-card>
+
+    <!-- 个人信息编辑 -->
+    <el-card class="info-card">
+        <div class="card-header">
+            <i class="fas fa-edit"></i> 个人信息
+        </div>
+        <div class="form-section">
+            <el-form :model="userForm" :rules="formRules" ref="userForm" label-width="100px">
+                <el-form-item label="用户名" prop="username">
+                    <el-input v-model="userForm.username" placeholder="请输入用户名"></el-input>
+                </el-form-item>
+                
+                <el-form-item label="手机号" prop="phone">
+                    <el-input v-model="userForm.phone" placeholder="请输入手机号"></el-input>
+                </el-form-item>
+                
+                <el-form-item label="邮箱" prop="email">
+                    <el-input v-model="userForm.email" placeholder="请输入邮箱（可选）"></el-input>
+                </el-form-item>
+                
+                <el-form-item label="注册时间">
+                    <el-input :value="userForm.created_at" disabled></el-input>
+                </el-form-item>
+                
+                <el-form-item>
+                    <el-button type="primary" @click="updateUserInfo" :loading="updating">
+                        <i class="fas fa-save"></i> 保存修改
+                    </el-button>
+                    <el-button @click="resetForm">
+                        <i class="fas fa-undo"></i> 重置
+                    </el-button>
+                </el-form-item>
+            </el-form>
+        </div>
+    </el-card>
+
+    <!-- 密码修改 -->
+    <el-card class="info-card">
+        <div class="card-header">
+            <i class="fas fa-lock"></i> 修改密码
+        </div>
+        <div class="form-section">
+            <el-form :model="passwordForm" :rules="passwordRules" ref="passwordForm" label-width="100px">
+                <el-form-item label="当前密码" prop="current_password">
+                    <el-input 
+                        v-model="passwordForm.current_password" 
+                        type="password" 
+                        placeholder="请输入当前密码"
+                        show-password>
+                    </el-input>
+                </el-form-item>
+                
+                <el-form-item label="新密码" prop="new_password">
+                    <el-input 
+                        v-model="passwordForm.new_password" 
+                        type="password" 
+                        placeholder="请输入新密码"
+                        show-password>
+                    </el-input>
+                </el-form-item>
+                
+                <el-form-item label="确认密码" prop="confirm_password">
+                    <el-input 
+                        v-model="passwordForm.confirm_password" 
+                        type="password" 
+                        placeholder="请再次输入新密码"
+                        show-password>
+                    </el-input>
+                </el-form-item>
+                
+                <el-form-item>
+                    <el-button type="warning" @click="updatePassword" :loading="updatingPassword">
+                        <i class="fas fa-key"></i> 修改密码
+                    </el-button>
+                    <el-button @click="resetPasswordForm">
+                        <i class="fas fa-undo"></i> 重置
+                    </el-button>
+                </el-form-item>
+            </el-form>
+        </div>
+    </el-card>
+
+    <!-- 快捷操作 -->
+    <el-card class="info-card">
+        <div class="card-header">
+            <i class="fas fa-bolt"></i> 快捷操作
+        </div>
+        <div class="form-section">
+            <el-row :gutter="20">
+                <el-col :span="8">
+                    <el-button type="primary" size="large" style="width: 100%;" @click="goToOrder">
+                        <i class="fas fa-plus"></i><br>立即下单
+                    </el-button>
+                </el-col>
+                <el-col :span="8">
+                    <el-button type="success" size="large" style="width: 100%;" @click="goToMyOrders">
+                        <i class="fas fa-list-alt"></i><br>我的订单
+                    </el-button>
+                </el-col>
+                <el-col :span="8">
+                    <el-button type="info" size="large" style="width: 100%;" @click="goToHome">
+                        <i class="fas fa-home"></i><br>返回首页
+                    </el-button>
+                </el-col>
+            </el-row>
+        </div>
+    </el-card>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+new Vue({
+    el: '#app',
+    data() {
+        return {
+            userForm: {
+                username: {{ (user.username if user else "")|tojson }},
+                phone: {{ (user.phone if user else "")|tojson }},
+                email: {{ (user.email if user else "")|tojson }},
+                created_at: {{ (user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user else "")|tojson }}
+            },
+            passwordForm: {
+                current_password: '',
+                new_password: '',
+                confirm_password: ''
+            },
+            updating: false,
+            updatingPassword: false,
+            formRules: {
+                username: [
+                    { required: true, message: '请输入用户名', trigger: 'blur' },
+                    { min: 2, max: 20, message: '用户名长度在 2 到 20 个字符', trigger: 'blur' }
+                ],
+                phone: [
+                    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+                ],
+                email: [
+                    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+                ]
+            },
+            passwordRules: {
+                current_password: [
+                    { required: true, message: '请输入当前密码', trigger: 'blur' }
+                ],
+                new_password: [
+                    { required: true, message: '请输入新密码', trigger: 'blur' },
+                    { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
+                ],
+                confirm_password: [
+                    { required: true, message: '请确认新密码', trigger: 'blur' },
+                    { validator: this.validateConfirmPassword, trigger: 'blur' }
+                ]
+            }
+        }
+    },
+    methods: {
+        validateConfirmPassword(rule, value, callback) {
+            if (value !== this.passwordForm.new_password) {
+                callback(new Error('两次输入密码不一致'));
+            } else {
+                callback();
+            }
+        },
+        async updateUserInfo() {
+            try {
+                await this.$refs.userForm.validate();
+                
+                this.updating = true;
+                
+                const response = await fetch('/user/update_info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(this.userForm)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.$message.success('个人信息更新成功！');
+                } else {
+                    this.$message.error(result.message || '更新失败');
+                }
+            } catch (error) {
+                if (error !== false) { // 不是表单验证错误
+                    this.$message.error('网络错误，请重试');
+                }
+            } finally {
+                this.updating = false;
+            }
+        },
+        async updatePassword() {
+            try {
+                await this.$refs.passwordForm.validate();
+                
+                this.updatingPassword = true;
+                
+                const response = await fetch('/user/update_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(this.passwordForm)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.$message.success('密码修改成功！');
+                    this.resetPasswordForm();
+                } else {
+                    this.$message.error(result.message || '密码修改失败');
+                }
+            } catch (error) {
+                if (error !== false) { // 不是表单验证错误
+                    this.$message.error('网络错误，请重试');
+                }
+            } finally {
+                this.updatingPassword = false;
+            }
+        },
+        resetForm() {
+            this.$refs.userForm.resetFields();
+        },
+        resetPasswordForm() {
+            this.$refs.passwordForm.resetFields();
+            this.passwordForm = {
+                current_password: '',
+                new_password: '',
+                confirm_password: ''
+            };
+        },
+        goToOrder() {
+            window.location.href = '/order';
+        },
+        goToMyOrders() {
+            window.location.href = '/my_orders';
+        },
+        goToHome() {
+            window.location.href = '/';
+        }
+    }
+});
+</script>
+{% endblock %}
